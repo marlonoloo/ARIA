@@ -1,0 +1,5 @@
+{
+  "resource": "/diagnosis",
+  "httpMethod": "POST",
+  "body": "{\"briefing_id\": \"33333333-3333-3333-3333-333333333333\", \"clinician_remarks\": \"BP 150/95, mild lower-limb oedema, 30 weeks pregnant, persistent headache. No visual changes.\"}"
+}

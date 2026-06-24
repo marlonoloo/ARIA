@@ -1,0 +1,10 @@
+# Runtime dependencies for the In-Clinic Service Lambdas.
+#
+# boto3/botocore are already present in the AWS Lambda Python runtime, but we
+# pin them here so local testing matches a recent API surface (Converse API,
+# RDS Data API formattedRecords, Bedrock Agent Runtime retrieve).
+boto3>=1.34.130
+botocore>=1.34.130
+
+# Dev/test only (not deployed to Lambda).
+pytest>=8.0.0

@@ -1,0 +1,24 @@
+# Build artifacts (Lambda deployment zips + staging)
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Secrets / local config — never commit these
+.env
+.env.*
+*.pem
+*.key
+aws-credentials*
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
