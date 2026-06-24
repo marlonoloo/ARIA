@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA - Doctor Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        aria: {
+                            primary: '#0D9488',
+                            secondary: '#F59E0B',
+                            emergency: '#DC2626',
+                            dark: '#1E293B',
+                            light: '#F8FAFC',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-2 text-gray-600 hover:text-aria-dark">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                <span class="text-sm font-medium">Back</span>
+            </a>
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-aria-primary rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                    </svg>
+                </div>
+                <span class="font-bold text-aria-dark">Doctor Dashboard</span>
+            </div>
+            <button onclick="loadBriefings()" class="text-sm text-aria-primary font-medium hover:underline">
+                Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-6xl mx-auto px-4 py-6">
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                <p class="text-2xl font-bold text-aria-emergency" id="criticalCount">-</p>
+                <p class="text-xs text-gray-500">Critical</p>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                <p class="text-2xl font-bold text-amber-500" id="pendingCount">-</p>
+                <p class="text-xs text-gray-500">Pending Review</p>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                <p class="text-2xl font-bold text-aria-primary" id="totalCount">-</p>
+                <p class="text-xs text-gray-500">Total Today</p>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-aria-dark">Incoming Patients</h2>
+            <select id="filterSeverity" onchange="filterCards()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-aria-primary">
+                <option value="all">All Severity</option>
+                <option value="critical">Critical</option>
+                <option value="severe">Severe</option>
+                <option value="moderate">Moderate</option>
+                <option value="mild">Mild</option>
+            </select>
+        </div>
+
+        <!-- Briefing Cards -->
+        <div id="briefingsContainer" class="space-y-4">
+            <!-- Loading state -->
+            <div id="loadingState" class="text-center py-12">
+                <div class="w-12 h-12 border-4 border-gray-200 border-t-aria-primary rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-gray-500 text-sm">Loading patient briefings...</p>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="text-center py-12 hidden">
+            <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <p class="text-gray-500">No pending briefings. All patients reviewed.</p>
+        </div>
+
+    </main>
+
+    <script src="doctor.js"></script>
+</body>
+</html>
