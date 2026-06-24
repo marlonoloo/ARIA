@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA - Accessible Real-time Intelligent Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        aria: {
+                            blue: '#2563EB',
+                            dark: '#1E40AF',
+                            light: '#EFF6FF',
+                            emergency: '#DC2626',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+    </style>
+</head>
+<body class="bg-white min-h-screen">
+
+    <!-- Header -->
+    <header class="border-b border-gray-100">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-aria-blue rounded-xl flex items-center justify-center">
+                    <span class="text-white text-lg font-bold">A</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">ARIA</h1>
+                    <p class="text-xs text-gray-500 hidden sm:block">Mothobi Healthcare Group</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-sm text-gray-500">Online</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-5xl mx-auto px-4 py-10 md:py-16">
+        
+        <!-- Welcome -->
+        <div class="text-center mb-12">
+            <h2 class="text-4xl md:text-5xl font-900 text-gray-900 mb-4">
+                Your Health Assistant
+            </h2>
+            <p class="text-gray-500 text-lg max-w-lg mx-auto">
+                Speak in your language. ARIA listens, understands, and connects you with the right care.
+            </p>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-14">
+
+            <!-- Emergency Card -->
+            <a href="emergency.html" class="card-hover block bg-white rounded-2xl border-2 border-red-100 p-8 text-center">
+                <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-10 h-10 text-aria-emergency" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Emergency</h3>
+                <p class="text-gray-500 text-sm">
+                    Speak now. ARIA will assess your situation and send help immediately.
+                </p>
+                <div class="mt-4 inline-flex items-center gap-2 text-aria-emergency font-semibold text-sm">
+                    <span>Get Help Now</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Non-Emergency / Chat Card -->
+            <a href="chat.html" class="card-hover block bg-white rounded-2xl border-2 border-blue-100 p-8 text-center">
+                <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-10 h-10 text-aria-blue" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Non-Emergency</h3>
+                <p class="text-gray-500 text-sm">
+                    Chat, speak, or upload an image. ARIA will guide you with first aid or connect you to a clinic.
+                </p>
+                <div class="mt-4 inline-flex items-center gap-2 text-aria-blue font-semibold text-sm">
+                    <span>Start Consultation</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                </div>
+            </a>
+        </div>
+
+        <!-- How it works -->
+        <div class="bg-aria-light rounded-2xl p-8 max-w-3xl mx-auto">
+            <h3 class="text-center text-lg font-bold text-gray-900 mb-6">How ARIA Works</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                <div>
+                    <div class="text-3xl mb-2">🗣️</div>
+                    <p class="text-sm font-medium text-gray-900">Speak</p>
+                    <p class="text-xs text-gray-500">In your language</p>
+                </div>
+                <div>
+                    <div class="text-3xl mb-2">🧠</div>
+                    <p class="text-sm font-medium text-gray-900">Understand</p>
+                    <p class="text-xs text-gray-500">AI assesses urgency</p>
+                </div>
+                <div>
+                    <div class="text-3xl mb-2">📍</div>
+                    <p class="text-sm font-medium text-gray-900">Locate</p>
+                    <p class="text-xs text-gray-500">Nearest clinic found</p>
+                </div>
+                <div>
+                    <div class="text-3xl mb-2">🏥</div>
+                    <p class="text-sm font-medium text-gray-900">Connect</p>
+                    <p class="text-xs text-gray-500">Help dispatched</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supported Languages -->
+        <div class="text-center mt-8">
+            <p class="text-sm text-gray-400 mb-2">Supported Languages</p>
+            <div class="flex flex-wrap justify-center gap-2">
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">English</span>
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">Kiswahili</span>
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">Zulu</span>
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">Amharic</span>
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">French</span>
+                <span class="px-3 py-1 bg-gray-50 rounded-full text-xs font-medium text-gray-600 border border-gray-100">Arabic</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-xs text-gray-400 border-t border-gray-50">
+        <p>ARIA v1.0 — Mothobi Healthcare Group — Serving 200,000+ patients across 45 clinics</p>
+    </footer>
+
+</body>
+</html>
