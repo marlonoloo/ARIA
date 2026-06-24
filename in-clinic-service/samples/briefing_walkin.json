@@ -1,0 +1,14 @@
+{
+  "briefing_generated": false,
+  "reason": "Patient was not pre-triaged (walk-in).",
+  "patient": {
+    "patient_id": "1111111a-1111-1111-1111-111111111111",
+    "full_name": "Grace Muthoni",
+    "phone_number": "+254700000002",
+    "preferred_language": "en",
+    "date_of_birth": "1988-09-30",
+    "gender": "female",
+    "literacy_level": "standard",
+    "intake_method": "walk_in"
+  }
+}

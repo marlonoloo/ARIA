@@ -147,3 +147,63 @@ WHERE session_id = '<session_id>' AND translated_text IS NOT NULL;   -- >= 1
 -- 4. (Optional) image findings
 SELECT detected_condition FROM image_analyses WHERE session_id = '<session_id>';
 ```
+
+
+---
+
+# API & Auth Contract (In-Clinic Service ↔ Cognito)
+
+The In-Clinic Service owns its API endpoints. Faith owns Cognito. This is the
+contract between the two. Nothing here is built yet on the auth side — it
+describes what each side must provide so they integrate without rework.
+
+## Our endpoints
+
+- **Type:** HTTP API (API Gateway v2)
+- `POST /briefing`  → `generateClinicalBriefing`
+- `POST /diagnosis` → `generateDiagnosticRecommendation`
+- JSON in / JSON out. Success = `200`; errors = `{"error": "..."}` with a 4xx/5xx.
+- CORS allows the `Authorization` header, so a frontend can send a Bearer token.
+- **Auth today:** none (open demo). Adding a Cognito JWT authorizer later needs
+  no change to our routes or integrations — it attaches at the gateway.
+
+## Division of responsibility
+
+| Concern | Owner |
+|---------|-------|
+| Cognito user pool + app client | Faith |
+| API Gateway JWT authorizer (token validation at the gateway) | Faith |
+| Reading the already-verified `claims.sub` to fill our audit fields | In-Clinic (small handler addition, only once auth is live) |
+
+Token *validation* never happens in our Lambda — the gateway rejects bad tokens
+before they reach us. We only ever consume the identity the gateway verified.
+
+## What we will expect from the token (so build the pool accordingly)
+
+- `claims.sub` → the clinician identity. We will match it against
+  **`clinicians.cognito_user_id`** to resolve `clinical_briefings.clinician_id`.
+- `claims["cognito:username"]` or `claims.email` → display name.
+
+> **Provisioning requirement on Faith's side:** every Cognito user who is a
+> clinician must have a row in `clinicians` with `cognito_user_id` = that user's
+> Cognito `sub`. Without it we cannot attribute actions (audit `clinician_id`
+> stays null).
+
+## What we need from Faith to attach the authorizer
+
+1. **User Pool ID**, **App Client ID**, **Region**.
+2. **Token type** the frontend will send (ID token recommended for HTTP API JWT
+   authorizers, since `aud` = app client id).
+
+With those, attaching the authorizer to our routes is:
+- Issuer: `https://cognito-idp.<region>.amazonaws.com/<userPoolId>`
+- Audience: `<app client id>`
+- Identity source: `$request.header.Authorization`
+- Attach to `POST /briefing` and `POST /diagnosis`.
+
+## Shared conventions (keep all services consistent)
+
+- HTTP API (v2), `POST`, `application/json`.
+- Lambda proxy response envelope `{ statusCode, headers, body }` (`body` a JSON string).
+- Errors as `{"error": "<message>"}`.
+- One shared User Pool / JWT authorizer across all ARIA services (single sign-on).
