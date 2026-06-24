@@ -1,8 +1,5 @@
-# Monorepo-wide ignores (each service may also have its own .gitignore)
-
-# Build artifacts (e.g. Lambda deployment zips)
+# Build artifacts (Lambda deployment zips + staging)
 build/
-dist/
 
 # Python
 __pycache__/
@@ -12,9 +9,6 @@ __pycache__/
 .venv/
 venv/
 env/
-
-# Node (in case a teammate's service / frontend uses it)
-node_modules/
 
 # Secrets / local config — never commit these
 .env

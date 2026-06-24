@@ -1,92 +1,50 @@
-# Project ARIA — In-Clinic Service
+# Project ARIA — AWS Tech U Capstone (Group 3)
 
-Part of **Project ARIA** (Accessible Real-time Intelligent Assistant), a
-multi-modal AI healthcare assistant for the fictional **Mothobi Healthcare
-Group**. This repository is the **In-Clinic Service**: once a patient arrives at
-the clinic, it generates an AI clinical briefing for the clinician, then a
-diagnostic recommendation after the clinician examines the patient.
+**Project ARIA** (Accessible Real-time Intelligent Assistant) is a multi-modal
+AI healthcare assistant for the fictional **Mothobi Healthcare Group**, a
+network of clinics serving patients across Africa with significant language and
+literacy barriers.
 
-> AWS Tech U capstone (Group 3). Proof-of-concept — not for real clinical use.
+> Proof-of-concept for the AWS Tech U capstone. Not for real clinical use.
 
-## What it does
+## Services (this monorepo)
 
-```
-Patient pre-triaged (app)         Doctor at clinic
-        │                                │
-        ▼                                ▼
-  messages / image_analyses   ──►  generateClinicalBriefing  (Bedrock + RAG)
-  (from pre-triage services)              │
-                                          ▼
-                                  Doctor reads briefing, examines patient,
-                                  types remarks
-                                          │
-                                          ▼
-                              generateDiagnosticRecommendation (Bedrock + RAG)
-                                          │
-                                          ▼
-                              Doctor accepts / modifies / rejects
-```
+ARIA is split into independent services that integrate through a **shared Aurora
+PostgreSQL database**. Each service is owned by a team member.
 
-Both AI calls are **grounded via Retrieval-Augmented Generation** against a
-Bedrock Knowledge Base of clinical protocols (WHO MCPC + Mothobi protocols), and
-all output is **decision support for a licensed clinician** — never autonomous.
+| Service | Owner | Status | What it does |
+|---------|-------|--------|--------------|
+| `in-clinic-service/` | Marlon | ✅ Lambdas working | At-clinic AI clinical briefing + diagnostic recommendation (Bedrock + RAG) |
+| `emergency-pretriage/` | Faith | _to be added_ | Emergency pre-triage: Transcribe → Comprehend → urgency routing → alerts |
+| `non-emergency-pretriage/` | Felista | _to be added_ | Non-emergency pre-triage: Rekognition image analysis → Lex conversation |
 
-## AWS services
+Teammates: add your service as a top-level folder and link it in this table.
 
-Amazon Bedrock (Claude, Converse API) · Bedrock Knowledge Bases (managed RAG) ·
-AWS Lambda · Amazon Aurora Serverless v2 PostgreSQL (via RDS Data API) ·
-Amazon S3 (KB source docs).
+## How the services connect
 
-## Repository layout
+The pre-triage services (Faith, Felista) capture the patient interaction and
+write to the shared database. The In-Clinic service (Marlon) reads that data
+when the patient arrives at the clinic.
 
-| Path | What |
-|------|------|
-| `src/handlers/clinical_briefing.py` | Lambda 1 — `generateClinicalBriefing` |
-| `src/handlers/diagnostic_recommendation.py` | Lambda 2 — `generateDiagnosticRecommendation` |
-| `src/shared/` | Shared modules: `bedrock`, `db`, `config`, `prompts`, `enums`, `http`, `logging_utils` |
-| `knowledge-base/protocols/` | Sample clinical protocol docs for the KB |
-| `knowledge-base/SETUP.md` | How to set up the Bedrock Knowledge Base + Lambda config + IAM |
-| `migrations/` | Additive schema changes (`001_add_ai_diagnosis_columns.sql`) |
-| `seeds/` | Demo data + verification queries |
-| `events/` | Sample Lambda test events |
-| `scripts/package.sh` | Build a per-Lambda deployment zip |
-| `tests/` | Unit tests (handlers, enums, JSON parsing) |
-| `INTEGRATION.md` | **Data contract for teammates** (pre-triage services) |
+**The integration contract lives in
+[`in-clinic-service/INTEGRATION.md`](./in-clinic-service/INTEGRATION.md)** — it
+specifies exactly which tables/columns the In-Clinic service reads, and the
+shared enum values every service must use. Read it before wiring services
+together.
 
-## Quick start
+## Shared database
 
-1. **Database** — apply `migrations/001_add_ai_diagnosis_columns.sql`, then load
-   `seeds/seed_demo_data.sql`.
-2. **Knowledge Base** — follow `knowledge-base/SETUP.md`.
-3. **Build** — `scripts/package.sh clinical_briefing` and
-   `scripts/package.sh diagnostic_recommendation`.
-4. **Deploy** — upload each zip to its Lambda; set the env vars and IAM policy
-   from `SETUP.md`; handler strings are `handlers.<name>.handler`.
-5. **Test** — invoke with the events in `events/`; verify with
-   `seeds/verify_changes.sql`.
+All services share one Aurora Serverless v2 (PostgreSQL) database. Schema
+migrations and demo/seed data for the In-Clinic portion live in
+`in-clinic-service/migrations/` and `in-clinic-service/seeds/`. Coordinate
+schema changes through the team so a change for one service doesn't break
+another (additive, nullable columns are safest).
 
-## Configuration (Lambda environment variables)
+## Getting started
 
-| Variable | Notes |
-|----------|-------|
-| `DB_CLUSTER_ARN` | Aurora cluster ARN (full ARN, not the name) |
-| `DB_SECRET_ARN` | Secrets Manager ARN for the cluster credentials |
-| `DB_NAME` | defaults to `aria` |
-| `KB_ID` | Bedrock Knowledge Base ID |
-| `BEDROCK_MODEL_ID` | active model / inference-profile ID, e.g. `us.anthropic.claude-sonnet-4-20250514-v1:0` |
-| `KB_NUM_RESULTS` | optional, default 5 |
+Each service has its own README and setup guide. For the In-Clinic service, see
+[`in-clinic-service/README.md`](./in-clinic-service/README.md).
 
-No secrets are stored in this repo — all credentials come from environment
-variables and Secrets Manager at runtime.
+## Team (Group 3)
 
-## Tests
-
-```bash
-pip install -r requirements.txt
-PYTHONPATH=src python -m pytest tests/ -v
-```
-
-## Teammates
-
-If you own a pre-triage service, read **[`INTEGRATION.md`](./INTEGRATION.md)** —
-it specifies exactly what this service reads from the shared database.
+Marlon Oloo (captain) · Faith Muronji · Felista Kamau
