@@ -602,6 +602,23 @@ def lambda_handler(event, context):
         if isinstance(body, str):
             body = json.loads(body)
 
+        # Public clinic locator — no patient/auth needed, so the (anonymous)
+        # emergency flow can find the nearest clinic from coordinates.
+        # Body: { "lat": <num>, "lng": <num>, "service": <optional> }
+        if path.endswith("/nearest-clinic"):
+            lat = body.get("lat")
+            lng = body.get("lng")
+            if lat is None or lng is None:
+                return _resp(400, {"error": "lat and lng are required"})
+            try:
+                clinic = nearest_clinic(lat, lng, body.get("service"))
+            except Exception as e:
+                print(f"[error] nearest-clinic lookup failed: {e}")
+                return _resp(500, {"error": "clinic lookup failed"})
+            if not clinic:
+                return _resp(404, {"error": "no active clinics found"})
+            return _resp(200, {"clinic": clinic})
+
         if claims:                       # JWT-authenticated patient route
             phone = patient_phone_from_sub(claims.get("sub"))
             if not phone:

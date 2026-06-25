@@ -111,3 +111,13 @@ async function authedPost(path, body) {
     if (!res.ok) throw new Error('Sorry, that request failed (' + res.status + '). Please try again.');
     return res.json();
 }
+
+// Find the nearest clinic to a coordinate (authenticated). Returns the clinic
+// object { clinic_id, name, location, distance_km } or null. `service` is
+// optional (e.g. 'maternity', 'burns').
+async function getNearestClinic(lat, lng, service) {
+    const body = { lat: lat, lng: lng };
+    if (service) body.service = service;
+    const data = await authedPost('/nearest-clinic', body);
+    return data.clinic || null;
+}
