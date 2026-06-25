@@ -604,21 +604,35 @@ async function finalizeConsultation() {
 
 function renderDraft(data) {
     const el = document.getElementById('finalizeResult');
+    const message = data.summary_translated || data.summary_en || '';
+    const langSuffix = (data.language && data.language !== 'en') ? ' (patient\'s language)' : '';
     el.innerHTML = `
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="px-6 py-3 border-b border-gray-100 flex items-center justify-between">
                 <h3 class="font-semibold text-gray-900">Patient Message — Draft</h3>
-                <span class="text-xs text-gray-500">Language: ${data.language || 'en'} | To: ${data.recipient || 'no email on file'}</span>
+                <span class="text-xs text-gray-500">Language: ${data.language || 'en'}</span>
             </div>
+
             <div class="px-6 py-4 border-b border-gray-100">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Message to patient (their language)</p>
-                <pre class="text-sm text-gray-800 whitespace-pre-wrap font-sans">${data.summary_translated || data.summary_en}</pre>
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Recipient email</label>
+                <input id="draftRecipient" type="email" value="${data.recipient || ''}"
+                       placeholder="patient@example.com"
+                       class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
+
+            <div class="px-6 py-4 border-b border-gray-100">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Message to patient${langSuffix}</p>
+                    <button onclick="toggleEditDraft()" id="editDraftBtn" class="text-xs text-blue-600 font-medium hover:underline">Edit</button>
+                </div>
+                <textarea id="draftMessage" readonly rows="12"
+                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400">${message}</textarea>
+            </div>
+
             <div class="px-6 py-3 bg-gray-50 flex items-center justify-between">
-                <span class="text-xs text-gray-500">Review the message, then send.</span>
+                <span class="text-xs text-gray-500">Review (and edit if needed), then send.</span>
                 <button onclick="sendNotification('${data.notification_id}')" id="sendBtn"
-                        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
-                        ${data.recipient ? '' : 'disabled title="No patient email on file"'}>
+                        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50">
                     Send to Patient
                 </button>
             </div>
@@ -627,7 +641,29 @@ function renderDraft(data) {
     el.classList.remove('hidden');
 }
 
+function toggleEditDraft() {
+    const ta = document.getElementById('draftMessage');
+    const btn = document.getElementById('editDraftBtn');
+    if (ta.hasAttribute('readonly')) {
+        ta.removeAttribute('readonly');
+        ta.classList.replace('bg-gray-50', 'bg-white');
+        ta.focus();
+        btn.textContent = 'Done';
+    } else {
+        ta.setAttribute('readonly', '');
+        ta.classList.replace('bg-white', 'bg-gray-50');
+        btn.textContent = 'Edit';
+    }
+}
+
 async function sendNotification(notificationId) {
+    const recipient = (document.getElementById('draftRecipient').value || '').trim();
+    const content = document.getElementById('draftMessage').value;
+    if (!recipient) {
+        alert('Please enter a recipient email before sending.');
+        return;
+    }
+
     const btn = document.getElementById('sendBtn');
     btn.textContent = 'Sending...';
     btn.disabled = true;
@@ -636,15 +672,13 @@ async function sendNotification(notificationId) {
         const resp = await fetch(`${API_BASE}/notification/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notification_id: notificationId })
+            body: JSON.stringify({ notification_id: notificationId, recipient, content })
         });
         if (!resp.ok) throw new Error(`API returned ${resp.status}`);
         const data = await resp.json();
         btn.outerHTML = `<span class="text-sm font-medium text-green-700">✓ Sent to ${data.recipient} — clearing from queue…</span>`;
 
-        // Auto-dismiss: the consultation is complete and the patient has been
-        // notified, so mark the briefing reviewed (removes it from the queue)
-        // and return to the worklist.
+        // Auto-dismiss: consultation complete + patient notified -> leave the queue.
         const sessionId = selectedPatient && selectedPatient.sessionId;
         if (sessionId) {
             await markReviewed(sessionId);

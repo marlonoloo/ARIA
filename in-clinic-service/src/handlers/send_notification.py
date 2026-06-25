@@ -29,14 +29,16 @@ def _load_notification(notification_id: str) -> dict | None:
     )
 
 
-def _mark_sent(notification_id: str):
+def _mark_sent(notification_id: str, recipient: str, content: str):
     db.execute(
         """
         UPDATE patient_notifications
-        SET approved_by_doctor = true, sent = true, sent_at = now()
+        SET approved_by_doctor = true, sent = true, sent_at = now(),
+            recipient = :recipient,
+            translated_text = :content
         WHERE notification_id = CAST(:nid AS uuid)
         """,
-        {"nid": notification_id},
+        {"nid": notification_id, "recipient": recipient, "content": content},
     )
 
 
@@ -57,14 +59,23 @@ def handler(event, context):  # noqa: ANN001
             return ok({"notification_id": notification_id, "sent": True,
                        "note": "Already sent."})
 
-        recipient = notif.get("recipient")
-        if not recipient:
-            return error(400, "Notification has no recipient email on file")
+        # Optional doctor overrides made during review.
+        override_recipient = (body.get("recipient") or "").strip() or None
+        override_content = body.get("content")
 
-        body_text = notif.get("translated_text") or notif.get("content_text")
+        recipient = override_recipient or notif.get("recipient")
+        if not recipient:
+            return error(400, "No recipient email provided or on file")
+
+        body_text = (
+            override_content
+            if (override_content and override_content.strip())
+            else (notif.get("translated_text") or notif.get("content_text"))
+        )
         message_id = notifications.send_email(recipient, _SUBJECT, body_text)
 
-        _mark_sent(notification_id)
+        # Persist the final recipient + (possibly edited) text for the audit trail.
+        _mark_sent(notification_id, recipient, body_text)
 
         return ok(
             {
