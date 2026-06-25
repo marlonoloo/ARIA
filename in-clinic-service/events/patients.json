@@ -1,0 +1,6 @@
+{
+  "routeKey": "GET /patients",
+  "rawPath": "/patients",
+  "requestContext": { "http": { "method": "GET", "path": "/patients" } },
+  "queryStringParameters": null
+}

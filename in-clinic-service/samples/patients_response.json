@@ -1,0 +1,51 @@
+{
+  "count": 2,
+  "patients": [
+    {
+      "briefing_id": "33333333-3333-3333-3333-333333333333",
+      "patient_id": "11111111-1111-1111-1111-111111111111",
+      "session_id": "22222222-2222-2222-2222-222222222222",
+      "clinic_id": "99999999-9999-9999-9999-999999999999",
+      "patient_name": "Amara Wanjiku",
+      "preferred_language": "sw",
+      "interaction_time": "2026-06-24T07:15:00+00:00",
+      "session_type": "emergency",
+      "urgency_level": 4,
+      "session_status": "active",
+      "chief_complaint": "Heavy vaginal bleeding with severe abdominal pain at 28 weeks gestation",
+      "severity": "critical",
+      "ai_assessment": "Critical obstetric emergency. Possible abruptio placentae, ruptured uterus, or placenta previa.",
+      "recommended_actions": "[\"Assess vital signs and check for shock\", \"Start IV, cross-match blood\", \"Assess fetal heart sounds\"]",
+      "protocol_references": "[\"OB_001\", \"MCPC-2nd-ed.pdf\"]",
+      "needs_in_person": true,
+      "flagged_for_review": true,
+      "image_finding": null,
+      "image_confidence": null,
+      "image_url": null,
+      "processing_status": "complete"
+    },
+    {
+      "briefing_id": "66666666-6666-6666-6666-666666666666",
+      "patient_id": "44444444-4444-4444-4444-444444444444",
+      "session_id": "55555555-5555-5555-5555-555555555555",
+      "clinic_id": "99999999-9999-9999-9999-999999999999",
+      "patient_name": "Juma Ochieng",
+      "preferred_language": "sw",
+      "interaction_time": "2026-06-24T08:05:00+00:00",
+      "session_type": "non_emergency",
+      "urgency_level": 2,
+      "session_status": "active",
+      "chief_complaint": "Burn on left forearm, blistering",
+      "severity": "moderate",
+      "ai_assessment": "Partial-thickness burn to the forearm. Clean and dress; assess depth and surface area.",
+      "recommended_actions": "[\"Cool with clean running water\", \"Cover with clean dressing\", \"Assess depth and % body surface area\"]",
+      "protocol_references": "[\"who-emergency-triage.md\"]",
+      "needs_in_person": true,
+      "flagged_for_review": false,
+      "image_finding": "partial-thickness burn",
+      "image_confidence": 0.88,
+      "image_url": "s3://aria-patient-images/juma/forearm.jpg",
+      "processing_status": "complete"
+    }
+  ]
+}

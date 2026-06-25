@@ -4,13 +4,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-_CORS_HEADERS = {
+_RESPONSE_HEADERS = {
     "Content-Type": "application/json",
-    # Demo frontend is served from CloudFront/S3; tighten this to the exact
-    # origin before anything resembling production.
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    # NOTE: CORS (Access-Control-Allow-*) is owned by API Gateway, not the
+    # Lambda. Returning CORS headers here too would duplicate them and the
+    # browser would reject the response. Configure CORS on the HTTP API instead.
 }
 
 
@@ -30,7 +28,7 @@ def parse_body(event: dict[str, Any]) -> dict[str, Any]:
 def response(status_code: int, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "statusCode": status_code,
-        "headers": _CORS_HEADERS,
+        "headers": _RESPONSE_HEADERS,
         "body": json.dumps(payload, default=str),
     }
 

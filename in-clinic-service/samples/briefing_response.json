@@ -1,0 +1,27 @@
+{
+  "briefing_generated": true,
+  "briefing_id": "33333333-3333-3333-3333-333333333333",
+  "briefing": {
+    "chief_complaint": "Heavy vaginal bleeding with severe abdominal pain at 28 weeks gestation",
+    "ai_assessment": "This is a critical obstetric emergency requiring immediate evaluation. At 28 weeks gestation with heavy bleeding and severe abdominal pain, the protocols indicate possible abruptio placentae, ruptured uterus, or placenta previa. The combination of symptoms meets red flag criteria for immediate escalation and potential life-threatening complications to both mother and fetus.",
+    "recommended_actions": [
+      "Immediately assess vital signs and check for shock",
+      "Start IV infusion and send blood for hemoglobin/hematocrit, type and screen, and cross-match for possible transfusion",
+      "Assess fetal heart sounds and movements urgently",
+      "Perform abdominal examination checking for rigidity, tenderness, and uterine contour",
+      "Do NOT perform vaginal examination until placenta previa is ruled out",
+      "Prepare for emergency obstetric intervention and consider immediate transfer to higher level facility"
+    ],
+    "severity": "critical",
+    "protocol_sources": [
+      "Protocol 4: Obstetric Emergency Triage",
+      "Protocol 5: Antepartum Hemorrhage Diagnosis"
+    ],
+    "uncertainty_notes": "The early pregnancy bleeding protocols do not apply at 28 weeks gestation. Patient's Rh status unknown but should be determined urgently given bleeding in pregnancy."
+  },
+  "disclaimer": "This is AI-generated decision support for a licensed clinician. It is not a diagnosis and must be reviewed before any action is taken.",
+  "protocol_sources": [
+    "https://aria-kb-protocols.s3.amazonaws.com/MCPC-2nd-ed.pdf",
+    "https://aria-kb-protocols.s3.amazonaws.com/mothobi_protocol_OB_001___Obstetric_Emergency_Triage.docx"
+  ]
+}

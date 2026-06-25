@@ -1,0 +1,24 @@
+{
+  "briefing_id": "33333333-3333-3333-3333-333333333333",
+  "diagnosis": {
+    "ai_diagnosis": "Severe preeclampsia at 30 weeks gestation - hypertension (150/95), edema, and headache constitute the classic triad. This represents a critical shift from the initial bleeding presentation and requires immediate obstetric management.",
+    "ai_diagnosis_actions": [
+      "Immediately assess for additional preeclampsia symptoms (visual disturbances, epigastric pain, hyperreflexia)",
+      "Obtain urgent laboratory studies: CBC, liver enzymes, creatinine, uric acid, protein/creatinine ratio",
+      "Initiate continuous fetal monitoring and assess fetal well-being",
+      "Administer antihypertensive therapy if diastolic BP >110 mmHg",
+      "Consider magnesium sulfate for seizure prophylaxis",
+      "Prepare for emergency delivery if maternal or fetal compromise develops",
+      "Immediate transfer to referral hospital with obstetric and neonatal intensive care capabilities"
+    ],
+    "severity": "critical",
+    "agreement_with_clinician": "diverges",
+    "divergence_note": "Clinician findings show preeclampsia symptoms (hypertension, edema, headache) at 30 weeks rather than the initially reported heavy bleeding and severe abdominal pain at 28 weeks. This represents a completely different obstetric emergency requiring different management protocols.",
+    "protocol_sources": ["Protocol 1: Obstetric Emergency Triage"]
+  },
+  "disclaimer": "This is AI-generated decision support for a licensed clinician. It is not a diagnosis and must be reviewed before any action is taken.",
+  "protocol_sources": [
+    "https://aria-kb-protocols.s3.amazonaws.com/mothobi_protocol_OB_001___Obstetric_Emergency_Triage.docx",
+    "https://aria-kb-protocols.s3.amazonaws.com/MCPC-2nd-ed.pdf"
+  ]
+}
