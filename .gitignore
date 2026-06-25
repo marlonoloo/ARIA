@@ -28,3 +28,6 @@ aws-credentials*
 .idea/
 .vscode/
 *.swp
+
+# Kiro spec/workspace files
+.kiro/
