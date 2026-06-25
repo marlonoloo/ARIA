@@ -1,123 +1,246 @@
 /**
- * ARIA frontend — shared Cognito auth + authenticated API helper.
- *
- * Loaded by both login.html and chat.html (after the amazon-cognito-identity-js
- * SDK, which provides the AmazonCognitoIdentity global). Tokens are persisted in
- * localStorage by the SDK, so a session established on login.html is visible to
- * chat.html on the same origin.
+ * ARIA Authentication (Amazon Cognito)
+ * 
+ * Uses Cognito's InitiateAuth and SignUp APIs directly via fetch.
+ * No SDK dependency needed — just standard Cognito REST calls.
+ * 
+ * Flow:
+ * 1. Doctor signs in with email/password
+ * 2. Cognito returns ID token + access token + refresh token
+ * 3. ID token stored in sessionStorage
+ * 4. Token sent as Authorization header on protected API calls
+ * 5. doctor.html checks for token on load — redirects to login if missing
  */
 
-// === CONFIG (point the pages at the deployed Triage API) ===
-const ARIA_CONFIG = {
-    apiBaseUrl: 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com',
-    region: 'us-east-1',
-    userPoolId: 'us-east-1_7EcteStu9',
-    clientId: '2naufa434t15vjrrl7aru34fqr',
-};
+// === COGNITO CONFIG (from Faith) ===
+const COGNITO_REGION = 'us-east-1';
+const COGNITO_POOL_ID = 'us-east-1_7EcteStu9';
+const COGNITO_CLIENT_ID = '2naufa434t15vjrrl7aru34fqr';
+const COGNITO_ENDPOINT = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com`;
 
-const userPool = new AmazonCognitoIdentity.CognitoUserPool({
-    UserPoolId: ARIA_CONFIG.userPoolId,
-    ClientId: ARIA_CONFIG.clientId,
-});
-let cognitoUser = null;
+// Store email for confirmation flow
+let pendingEmail = '';
 
-// Sign in with username/password using the USER_PASSWORD_AUTH flow.
-function signIn(username, password) {
-    return new Promise((resolve, reject) => {
-        const authDetails = new AmazonCognitoIdentity.AuthenticationDetails({
-            Username: username, Password: password,
-        });
-        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: userPool });
-        user.setAuthenticationFlowType('USER_PASSWORD_AUTH');
-        user.authenticateUser(authDetails, {
-            onSuccess: (session) => { cognitoUser = user; resolve(session); },
-            onFailure: (err) => reject(err),
-            newPasswordRequired: () => reject(new Error('This account needs a new password set before sign-in.')),
-        });
-    });
-}
+// === SIGN IN ===
 
-// Register a new account. `attributes` is an optional map of Cognito user
-// attributes, e.g. { email: 'x@y.com', phone_number: '+254...', name: 'Amara' }.
-// Resolves with { userConfirmed, userSub, user }.
-function signUp(username, password, attributes) {
-    return new Promise((resolve, reject) => {
-        const attrList = Object.entries(attributes || {}).map(([Name, Value]) =>
-            new AmazonCognitoIdentity.CognitoUserAttribute({ Name: Name, Value: String(Value) }));
-        userPool.signUp(username, password, attrList, null, (err, result) => {
-            if (err) { reject(err); return; }
-            resolve({ userConfirmed: result.userConfirmed, userSub: result.userSub, user: result.user });
-        });
-    });
-}
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    
+    hideError('errorMsg');
+    btn.textContent = 'Signing in...';
+    btn.disabled = true;
 
-// Confirm a newly registered account with the emailed/texted verification code.
-function confirmSignUp(username, code) {
-    return new Promise((resolve, reject) => {
-        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: userPool });
-        user.confirmRegistration(code, true, (err, result) => {
-            if (err) { reject(err); return; }
-            resolve(result);
-        });
-    });
-}
-
-// Resend the confirmation code to a user who hasn't confirmed yet.
-function resendConfirmationCode(username) {
-    return new Promise((resolve, reject) => {
-        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: userPool });
-        user.resendConfirmationCode((err, result) => {
-            if (err) { reject(err); return; }
-            resolve(result);
-        });
-    });
-}
-
-// Resolve a valid ID token, refreshing silently if needed. Rejects when not signed in.
-function getIdToken() {
-    return new Promise((resolve, reject) => {
-        const user = cognitoUser || userPool.getCurrentUser();
-        if (!user) { reject(new Error('not-signed-in')); return; }
-        user.getSession((err, session) => {
-            if (err || !session || !session.isValid()) { reject(new Error('not-signed-in')); return; }
-            cognitoUser = user;
-            resolve(session.getIdToken().getJwtToken());
-        });
-    });
-}
-
-function signOut() {
-    const user = cognitoUser || userPool.getCurrentUser();
-    if (user) user.signOut();
-    cognitoUser = null;
-}
-
-function redirectToLogin() { window.location.href = 'login.html'; }
-
-// Authenticated POST to the Triage API. Redirects to login if the session is gone.
-async function authedPost(path, body) {
-    let token;
     try {
-        token = await getIdToken();
-    } catch (e) {
-        redirectToLogin();
-        throw new Error('not-signed-in');
+        const response = await fetch(COGNITO_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-amz-json-1.1',
+                'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth'
+            },
+            body: JSON.stringify({
+                AuthFlow: 'USER_PASSWORD_AUTH',
+                ClientId: COGNITO_CLIENT_ID,
+                AuthParameters: {
+                    USERNAME: email,
+                    PASSWORD: password
+                }
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.AuthenticationResult) {
+            // Success — store tokens
+            const tokens = data.AuthenticationResult;
+            sessionStorage.setItem('aria_id_token', tokens.IdToken);
+            sessionStorage.setItem('aria_access_token', tokens.AccessToken);
+            sessionStorage.setItem('aria_refresh_token', tokens.RefreshToken || '');
+            sessionStorage.setItem('aria_user_email', email);
+
+            // Redirect to doctor dashboard
+            window.location.href = 'doctor.html';
+        } else if (data.__type && data.__type.includes('NotAuthorizedException')) {
+            showError('errorMsg', 'errorText', 'Incorrect email or password.');
+        } else if (data.__type && data.__type.includes('UserNotConfirmedException')) {
+            showError('errorMsg', 'errorText', 'Please verify your email first.');
+            pendingEmail = email;
+            showConfirm();
+        } else if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+            showError('errorMsg', 'errorText', 'Password reset required. Contact admin.');
+        } else {
+            showError('errorMsg', 'errorText', data.message || 'Login failed. Please try again.');
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+        showError('errorMsg', 'errorText', 'Connection error. Please try again.');
     }
-    const res = await fetch(ARIA_CONFIG.apiBaseUrl + path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error('Sorry, that request failed (' + res.status + '). Please try again.');
-    return res.json();
+
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
 }
 
-// Find the nearest clinic to a coordinate (authenticated). Returns the clinic
-// object { clinic_id, name, location, distance_km } or null. `service` is
-// optional (e.g. 'maternity', 'burns').
-async function getNearestClinic(lat, lng, service) {
-    const body = { lat: lat, lng: lng };
-    if (service) body.service = service;
-    const data = await authedPost('/nearest-clinic', body);
-    return data.clinic || null;
+// === SIGN UP ===
+
+async function handleSignUp(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('signUpName').value.trim();
+    const email = document.getElementById('signUpEmail').value.trim();
+    const password = document.getElementById('signUpPassword').value;
+    const btn = document.getElementById('signUpBtn');
+
+    hideError('signUpErrorMsg');
+    btn.textContent = 'Creating account...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(COGNITO_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-amz-json-1.1',
+                'X-Amz-Target': 'AWSCognitoIdentityProviderService.SignUp'
+            },
+            body: JSON.stringify({
+                ClientId: COGNITO_CLIENT_ID,
+                Username: email,
+                Password: password,
+                UserAttributes: [
+                    { Name: 'email', Value: email },
+                    { Name: 'name', Value: name }
+                ]
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.UserSub) {
+            // Success — need email confirmation
+            pendingEmail = email;
+            showConfirm();
+        } else if (data.__type && data.__type.includes('UsernameExistsException')) {
+            showError('signUpErrorMsg', 'signUpErrorText', 'An account with this email already exists.');
+        } else if (data.__type && data.__type.includes('InvalidPasswordException')) {
+            showError('signUpErrorMsg', 'signUpErrorText', 'Password must be at least 8 characters with uppercase, lowercase, and numbers.');
+        } else {
+            showError('signUpErrorMsg', 'signUpErrorText', data.message || 'Sign up failed.');
+        }
+    } catch (err) {
+        console.error('Sign up error:', err);
+        showError('signUpErrorMsg', 'signUpErrorText', 'Connection error. Please try again.');
+    }
+
+    btn.textContent = 'Create Account';
+    btn.disabled = false;
+}
+
+// === CONFIRM SIGN UP ===
+
+async function handleConfirm(event) {
+    event.preventDefault();
+
+    const code = document.getElementById('confirmCode').value.trim();
+
+    try {
+        const response = await fetch(COGNITO_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-amz-json-1.1',
+                'X-Amz-Target': 'AWSCognitoIdentityProviderService.ConfirmSignUp'
+            },
+            body: JSON.stringify({
+                ClientId: COGNITO_CLIENT_ID,
+                Username: pendingEmail,
+                ConfirmationCode: code
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.__type) {
+            // Success — redirect to login
+            alert('Email verified! You can now sign in.');
+            showLogin();
+            document.getElementById('email').value = pendingEmail;
+        } else {
+            alert(data.message || 'Invalid code. Please try again.');
+        }
+    } catch (err) {
+        console.error('Confirmation error:', err);
+        alert('Connection error. Please try again.');
+    }
+}
+
+// === UI HELPERS ===
+
+function showLogin() {
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('signUpForm').classList.add('hidden');
+    document.getElementById('confirmForm').classList.add('hidden');
+}
+
+function showSignUp() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('signUpForm').classList.remove('hidden');
+    document.getElementById('confirmForm').classList.add('hidden');
+}
+
+function showConfirm() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('signUpForm').classList.add('hidden');
+    document.getElementById('confirmForm').classList.remove('hidden');
+}
+
+function showError(containerId, textId, message) {
+    document.getElementById(containerId).classList.remove('hidden');
+    document.getElementById(textId).textContent = message;
+}
+
+function hideError(containerId) {
+    document.getElementById(containerId).classList.add('hidden');
+}
+
+// === AUTH UTILITIES (used by other pages) ===
+
+/**
+ * Get the stored ID token. Returns null if not logged in.
+ */
+function getToken() {
+    return sessionStorage.getItem('aria_id_token');
+}
+
+/**
+ * Check if user is authenticated. Redirect to login if not.
+ * Call this at the top of protected pages (e.g. doctor.html).
+ */
+function requireAuth() {
+    const token = getToken();
+    if (!token) {
+        window.location.href = 'doctor-login.html';
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Log out — clear tokens and redirect to login.
+ */
+function logout() {
+    sessionStorage.removeItem('aria_id_token');
+    sessionStorage.removeItem('aria_access_token');
+    sessionStorage.removeItem('aria_refresh_token');
+    sessionStorage.removeItem('aria_user_email');
+    window.location.href = 'doctor-login.html';
+}
+
+/**
+ * Get auth headers for API calls.
+ * Use this in fetch requests to protected endpoints.
+ */
+function getAuthHeaders() {
+    const token = getToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
 }

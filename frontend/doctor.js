@@ -11,6 +11,8 @@
 
 // === API CONFIG ===
 const API_BASE = 'https://jhn2lkbr66.execute-api.us-east-1.amazonaws.com';
+// /briefing/reviewed lives on the consolidated aria-api gateway, not jhn2lkbr66.
+const REVIEW_API_BASE = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com';
 
 // Store all patients for filtering
 let allPatients = [];
@@ -192,9 +194,9 @@ function createBriefingCard(patient) {
             </div>
             ` : ''}
 
-            <!-- Recommended Actions -->
+            <!-- Suggested Preparation (pre-exam) -->
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Suggested Preparation <span class="normal-case text-gray-400">(before exam)</span></p>
                 ${actionsHTML}
             </div>
         </div>
@@ -286,9 +288,9 @@ function openBriefingDetail(patient) {
             </div>
             ` : ''}
 
-            <!-- Recommended Actions -->
+            <!-- Suggested Preparation (pre-exam) -->
             <div class="px-6 py-4 border-b border-gray-100">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggested Preparation <span class="normal-case text-gray-400">(before you examine)</span></p>
                 <div class="space-y-1">
                     ${actionsChecklist}
                 </div>
@@ -327,6 +329,9 @@ function openBriefingDetail(patient) {
 
         <!-- Diagnosis Result (hidden until submitted) -->
         <div id="diagnosisResult" class="hidden"></div>
+
+        <!-- Finalize Consultation panel (hidden until a diagnosis is shown) -->
+        <div id="finalizePanel" class="hidden mt-4"></div>
 
         <!-- Disclaimer -->
         <p class="text-xs text-gray-400 text-center mt-4">
@@ -433,7 +438,7 @@ function renderDiagnosisResult(data) {
             </div>
 
             <div class="px-6 py-4 border-b border-gray-100">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Management <span class="normal-case text-gray-400">(based on your findings)</span></p>
                 <ol class="list-decimal list-inside space-y-1">
                     ${actionsHTML}
                 </ol>
@@ -453,6 +458,237 @@ function renderDiagnosisResult(data) {
     `;
 
     resultDiv.classList.remove('hidden');
+
+    // Now that the doctor has the AI recommendation, show the finalize panel.
+    renderFinalizePanel();
+}
+
+// === FINALIZE CONSULTATION (decision + prescription + follow-up + notify) ===
+
+function renderFinalizePanel() {
+    const panel = document.getElementById('finalizePanel');
+    panel.innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4">Finalize Consultation</h3>
+
+            <!-- Decision -->
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your decision on the AI recommendation</p>
+            <div class="flex gap-2 mb-4">
+                <label class="flex-1">
+                    <input type="radio" name="decision" value="accepted" class="peer hidden" onchange="toggleModifiedRec()">
+                    <span class="block text-center text-sm py-2 rounded-lg border border-gray-200 cursor-pointer peer-checked:bg-green-600 peer-checked:text-white peer-checked:border-green-600">Accept</span>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="decision" value="modified" class="peer hidden" onchange="toggleModifiedRec()">
+                    <span class="block text-center text-sm py-2 rounded-lg border border-gray-200 cursor-pointer peer-checked:bg-amber-500 peer-checked:text-white peer-checked:border-amber-500">Modify</span>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="decision" value="rejected" class="peer hidden" onchange="toggleModifiedRec()">
+                    <span class="block text-center text-sm py-2 rounded-lg border border-gray-200 cursor-pointer peer-checked:bg-red-600 peer-checked:text-white peer-checked:border-red-600">Reject</span>
+                </label>
+            </div>
+
+            <!-- Modified recommendation (only when Modify) -->
+            <div id="modifiedRecWrap" class="hidden mb-4">
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Your revised recommendation</label>
+                <textarea id="modifiedRec" class="mt-1 w-full h-20 px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Describe the management you are recommending instead..."></textarea>
+            </div>
+
+            <!-- Prescriptions -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Prescription</p>
+                    <button onclick="addPrescriptionRow()" class="text-xs text-blue-600 font-medium hover:underline">+ Add medication</button>
+                </div>
+                <div id="rxRows" class="space-y-2"></div>
+            </div>
+
+            <!-- Follow-up -->
+            <div class="mb-4">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Follow-up visit (optional)</p>
+                <div class="flex gap-2">
+                    <input type="date" id="followUpDate" class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="followUpReason" placeholder="Reason (e.g. BP review)" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <button onclick="finalizeConsultation()" id="finalizeBtn"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 active:scale-[0.98] transition-transform">
+                Finalize &amp; Draft Patient Message
+            </button>
+        </div>
+
+        <!-- Draft / send result -->
+        <div id="finalizeResult" class="hidden mt-4"></div>
+    `;
+    panel.classList.remove('hidden');
+    addPrescriptionRow();  // start with one empty row
+}
+
+function toggleModifiedRec() {
+    const decision = document.querySelector('input[name="decision"]:checked')?.value;
+    document.getElementById('modifiedRecWrap').classList.toggle('hidden', decision !== 'modified');
+}
+
+function addPrescriptionRow() {
+    const row = document.createElement('div');
+    row.className = 'rx-row grid grid-cols-12 gap-2 items-center';
+    row.innerHTML = `
+        <input type="text" class="rx-drug col-span-3 px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="Drug">
+        <input type="text" class="rx-dosage col-span-2 px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="Dose">
+        <input type="text" class="rx-frequency col-span-2 px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="Frequency">
+        <input type="text" class="rx-duration col-span-2 px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="Duration">
+        <input type="text" class="rx-instructions col-span-2 px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="Notes">
+        <button onclick="this.parentElement.remove()" class="col-span-1 text-gray-400 hover:text-red-600 text-lg leading-none">&times;</button>
+    `;
+    document.getElementById('rxRows').appendChild(row);
+}
+
+function collectPrescriptions() {
+    return [...document.querySelectorAll('#rxRows .rx-row')].map(r => ({
+        drug_name: r.querySelector('.rx-drug').value.trim(),
+        dosage: r.querySelector('.rx-dosage').value.trim(),
+        frequency: r.querySelector('.rx-frequency').value.trim(),
+        duration: r.querySelector('.rx-duration').value.trim(),
+        instructions: r.querySelector('.rx-instructions').value.trim(),
+    })).filter(rx => rx.drug_name);
+}
+
+async function finalizeConsultation() {
+    const decision = document.querySelector('input[name="decision"]:checked')?.value;
+    if (!decision) {
+        alert('Please choose a decision: Accept, Modify, or Reject.');
+        return;
+    }
+    const modifiedRec = decision === 'modified'
+        ? document.getElementById('modifiedRec').value.trim()
+        : null;
+    const date = document.getElementById('followUpDate').value;
+    const reason = document.getElementById('followUpReason').value.trim();
+    const followUp = date ? { scheduled_date: date, reason } : {};
+
+    const payload = {
+        briefing_id: selectedPatient.briefingId,
+        clinician_decision: decision,
+        clinician_modified_recommendation: modifiedRec,
+        prescriptions: collectPrescriptions(),
+        follow_up: followUp
+    };
+
+    const btn = document.getElementById('finalizeBtn');
+    btn.textContent = 'Drafting message...';
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+
+    try {
+        const resp = await fetch(`${API_BASE}/consultation/finalize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+        const data = await resp.json();
+        renderDraft(data);
+    } catch (err) {
+        console.error('Finalize error:', err);
+        const el = document.getElementById('finalizeResult');
+        el.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">Failed to finalize. Please try again.</div>`;
+        el.classList.remove('hidden');
+    }
+
+    btn.textContent = 'Finalize & Draft Patient Message';
+    btn.disabled = false;
+    btn.classList.remove('opacity-50');
+}
+
+function renderDraft(data) {
+    const el = document.getElementById('finalizeResult');
+    const message = data.summary_translated || data.summary_en || '';
+    const langSuffix = (data.language && data.language !== 'en') ? ' (patient\'s language)' : '';
+    el.innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="font-semibold text-gray-900">Patient Message — Draft</h3>
+                <span class="text-xs text-gray-500">Language: ${data.language || 'en'}</span>
+            </div>
+
+            <div class="px-6 py-4 border-b border-gray-100">
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Recipient email</label>
+                <input id="draftRecipient" type="email" value="${data.recipient || ''}"
+                       placeholder="patient@example.com"
+                       class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="px-6 py-4 border-b border-gray-100">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Message to patient${langSuffix}</p>
+                    <button onclick="toggleEditDraft()" id="editDraftBtn" class="text-xs text-blue-600 font-medium hover:underline">Edit</button>
+                </div>
+                <textarea id="draftMessage" readonly rows="12"
+                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400">${message}</textarea>
+            </div>
+
+            <div class="px-6 py-3 bg-gray-50 flex items-center justify-between">
+                <span class="text-xs text-gray-500">Review (and edit if needed), then send.</span>
+                <button onclick="sendNotification('${data.notification_id}')" id="sendBtn"
+                        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    Send to Patient
+                </button>
+            </div>
+        </div>
+    `;
+    el.classList.remove('hidden');
+}
+
+function toggleEditDraft() {
+    const ta = document.getElementById('draftMessage');
+    const btn = document.getElementById('editDraftBtn');
+    if (ta.hasAttribute('readonly')) {
+        ta.removeAttribute('readonly');
+        ta.classList.replace('bg-gray-50', 'bg-white');
+        ta.focus();
+        btn.textContent = 'Done';
+    } else {
+        ta.setAttribute('readonly', '');
+        ta.classList.replace('bg-white', 'bg-gray-50');
+        btn.textContent = 'Edit';
+    }
+}
+
+async function sendNotification(notificationId) {
+    const recipient = (document.getElementById('draftRecipient').value || '').trim();
+    const content = document.getElementById('draftMessage').value;
+    if (!recipient) {
+        alert('Please enter a recipient email before sending.');
+        return;
+    }
+
+    const btn = document.getElementById('sendBtn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`${API_BASE}/notification/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notification_id: notificationId, recipient, content })
+        });
+        if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+        const data = await resp.json();
+        btn.outerHTML = `<span class="text-sm font-medium text-green-700">✓ Sent to ${data.recipient} — clearing from queue…</span>`;
+
+        // Auto-dismiss: consultation complete + patient notified -> leave the queue.
+        const sessionId = selectedPatient && selectedPatient.sessionId;
+        if (sessionId) {
+            await markReviewed(sessionId);
+            closeBriefingDetail();
+        }
+    } catch (err) {
+        console.error('Send error:', err);
+        btn.textContent = 'Send failed — retry';
+        btn.disabled = false;
+    }
 }
 
 // === UTILITY FUNCTIONS ===
@@ -476,7 +712,26 @@ function filterCards() {
     }
 }
 
-function markReviewed(sessionId) {
+async function markReviewed(sessionId) {
+    const patient = allPatients.find(p => p.sessionId === sessionId);
+    if (!patient) return;
+
+    // Persist the dismissal first, so the card stays gone after a refresh.
+    // (GET /patients only returns briefings where viewed_by_clinician = false.)
+    try {
+        const resp = await fetch(`${REVIEW_API_BASE}/briefing/reviewed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ briefing_id: patient.briefingId })
+        });
+        if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+    } catch (err) {
+        console.error('Failed to mark reviewed:', err);
+        alert('Could not dismiss this briefing — please try again.');
+        return; // leave the card in place on failure
+    }
+
+    // Success → remove the card from the UI.
     const cards = document.querySelectorAll('.briefing-card');
     cards.forEach(card => {
         if (card.querySelector(`button[onclick*="${sessionId}"]`)) {

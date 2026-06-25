@@ -4,10 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARIA - Non-Emergency Consultation</title>
-    <!-- Amazon Cognito Identity SDK (load BEFORE other CDNs so its UMD bundle attaches the window global) -->
-    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
-    <!-- Shared Cognito auth + authenticated API helper -->
-    <script src="auth.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -41,6 +37,13 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
 
+    <!-- Auth check — redirect to patient login if not signed in -->
+    <script>
+        if (!sessionStorage.getItem('aria_id_token')) {
+            window.location.href = 'patient-login.html';
+        }
+    </script>
+
     <!-- Header -->
     <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -58,7 +61,9 @@
                 </div>
                 <span class="font-bold text-gray-900">Consultation</span>
             </div>
-            <button id="signOutBtn" class="text-sm font-medium text-gray-500 hover:text-gray-900">Sign out</button>
+            <button onclick="patientLogout()" class="text-sm text-gray-500 hover:text-red-600 font-medium">
+                Sign Out
+            </button>
         </div>
     </header>
 
@@ -117,7 +122,7 @@
 
         <!-- Chat Interface (hidden initially, shown after mode selection) -->
         <div id="chatInterface" class="flex-1 flex flex-col hidden">
-            
+
             <!-- Status -->
             <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-center">
                 <p class="text-sm text-aria-blue font-medium" id="chatStatus">Describe your symptoms or concern</p>
@@ -125,7 +130,6 @@
 
             <!-- Messages -->
             <div id="chatMessages" class="flex-1 space-y-3 overflow-y-auto mb-4 min-h-[250px]">
-                <!-- ARIA welcome message -->
                 <div class="flex justify-start message-enter">
                     <div class="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] shadow-sm">
                         <p class="text-xs font-medium text-aria-blue mb-1">ARIA</p>
@@ -136,7 +140,7 @@
 
             <!-- Input Area -->
             <div id="inputArea" class="space-y-3 pb-4">
-                
+
                 <!-- Voice input -->
                 <div id="voiceInput" class="flex flex-col items-center gap-2 hidden">
                     <button class="mic-btn w-20 h-20 rounded-full bg-aria-blue flex items-center justify-center shadow-lg hover:bg-aria-dark active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-200"
@@ -151,7 +155,7 @@
 
                 <!-- Text input -->
                 <div id="textInput" class="flex gap-2 hidden">
-                    <input type="text" 
+                    <input type="text"
                            id="chatTextInput"
                            class="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
                            placeholder="Type your symptoms..."
@@ -174,7 +178,6 @@
                         </div>
                         <input type="file" id="imageFile" accept="image/*" capture="environment" class="hidden" onchange="handleImageUpload(event)">
                     </label>
-                    <!-- Image preview -->
                     <div id="imagePreview" class="hidden mt-4">
                         <div class="relative inline-block">
                             <img id="previewImg" class="rounded-xl max-h-48 border border-gray-200" alt="Uploaded image">
@@ -215,10 +218,22 @@
 
     <script>
         // ============================================================
-        // ARIA Non-Emergency Consultation — live backend integration
+        // ARIA Consultation — live backend integration
+        // Auth shell (sessionStorage aria_id_token) comes from patient-login.html.
         // ============================================================
-        // Auth + API config/helpers (ARIA_CONFIG, userPool, signIn, getIdToken,
-        // authedPost, signOut, redirectToLogin) come from auth.js, loaded above.
+
+        // === PATIENT AUTH ===
+        function patientLogout() {
+            sessionStorage.removeItem('aria_id_token');
+            sessionStorage.removeItem('aria_access_token');
+            sessionStorage.removeItem('aria_patient_username');
+            window.location.href = 'patient-login.html';
+        }
+
+        const patientUsername = sessionStorage.getItem('aria_patient_username') || 'there';
+
+        // === BACKEND CONFIG ===
+        const API_BASE = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com';
 
         // === STATE ===
         let currentMode = null;
@@ -226,6 +241,32 @@
         let patientCoords = null;    // { lat, lng } once geolocation succeeds, else null
         let isProcessing = false;    // guards against concurrent turns
         let uploadedImage = null;
+
+        // === AUTH + API HELPERS ===
+        function getIdToken() { return sessionStorage.getItem('aria_id_token'); }
+
+        async function authedPost(path, body) {
+            const token = getIdToken();
+            if (!token) { patientLogout(); throw new Error('not-signed-in'); }
+            const res = await fetch(API_BASE + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(body),
+            });
+            if (res.status === 401) { patientLogout(); throw new Error('not-signed-in'); }
+            if (!res.ok) throw new Error('Sorry, that request failed (' + res.status + '). Please try again.');
+            return res.json();
+        }
+
+        // Merge session + location into a /chat call and capture a new session_id.
+        async function chatPost(extra) {
+            const body = Object.assign({}, extra);
+            if (sessionId) body.session_id = sessionId;
+            if (patientCoords) { body.lat = patientCoords.lat; body.lng = patientCoords.lng; }
+            const data = await authedPost('/chat', body);
+            if (data && data.session_id && !sessionId) sessionId = data.session_id;
+            return data;
+        }
 
         // === GEOLOCATION (for nearest-clinic routing) ===
         function requestLocation() {
@@ -239,23 +280,6 @@
             );
         }
 
-        function startConsultation() {
-            requestLocation();
-        }
-
-        // Merge session + location into a /chat call and capture a new session_id.
-        async function chatPost(extra) {
-            const body = Object.assign({}, extra);
-            if (sessionId) body.session_id = sessionId;
-            if (patientCoords) { body.lat = patientCoords.lat; body.lng = patientCoords.lng; }
-            const data = await authedPost('/chat', body);
-            if (data && data.session_id && !sessionId) {
-                sessionId = data.session_id;
-                if (!sessionId) throw new Error('Could not save the conversation session. Please try again.');
-            }
-            return data;
-        }
-
         // === MODE SELECTION ===
         function selectMode(mode) {
             currentMode = mode;
@@ -265,11 +289,11 @@
 
             const welcomeMsg = document.getElementById('welcomeMessage');
             if (mode === 'voice') {
-                welcomeMsg.textContent = "I'm listening. Hold the mic button and tell me what's wrong.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! I'm listening. Hold the mic button and tell me what's wrong.`;
             } else if (mode === 'text') {
-                welcomeMsg.textContent = "Hello! Type your symptoms or describe what's bothering you.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! Type your symptoms or describe what's bothering you.`;
             } else if (mode === 'image') {
-                welcomeMsg.textContent = "Upload a photo of the affected area. I'll analyze it and ask follow-up questions.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! Upload a photo of the affected area. I'll analyze it and ask follow-up questions.`;
             }
         }
 
@@ -295,7 +319,7 @@
             }
         }
 
-        // === UI RENDERING (DOM-built; user/AI text set via textContent to avoid injection) ===
+        // === UI RENDERING (DOM-built; text set via textContent to avoid injection) ===
         function messagesEl() { return document.getElementById('chatMessages'); }
         function scrollMessages() { const m = messagesEl(); m.scrollTop = m.scrollHeight; }
         function setStatus(text) { document.getElementById('chatStatus').textContent = text; }
@@ -351,14 +375,9 @@
             const box = document.createElement('div');
             box.className = 'bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 max-w-[90%] w-full';
             const name = document.createElement('p'); name.className = 'text-sm font-semibold text-aria-dark'; name.textContent = clinic.name || 'Recommended clinic';
-            const loc = document.createElement('p'); loc.className = 'text-sm text-gray-700'; loc.textContent = clinic.location || '';
             box.appendChild(name);
-            if (clinic.location) box.appendChild(loc);
-            if (clinic.distance_km != null) {
-                const dist = document.createElement('p'); dist.className = 'text-xs text-gray-500 mt-1';
-                dist.textContent = 'About ' + clinic.distance_km + ' km away';
-                box.appendChild(dist);
-            }
+            if (clinic.location) { const loc = document.createElement('p'); loc.className = 'text-sm text-gray-700'; loc.textContent = clinic.location; box.appendChild(loc); }
+            if (clinic.distance_km != null) { const d = document.createElement('p'); d.className = 'text-xs text-gray-500 mt-1'; d.textContent = 'About ' + clinic.distance_km + ' km away'; box.appendChild(d); }
             wrap.appendChild(box);
             messagesEl().appendChild(wrap);
             scrollMessages();
@@ -376,7 +395,6 @@
             scrollMessages();
         }
 
-        // Typing / processing indicator
         function showTyping() {
             if (document.getElementById('typingBubble')) return;
             const wrap = document.createElement('div');
@@ -390,10 +408,7 @@
             messagesEl().appendChild(wrap);
             scrollMessages();
         }
-        function removeTyping() {
-            const t = document.getElementById('typingBubble');
-            if (t) t.remove();
-        }
+        function removeTyping() { const t = document.getElementById('typingBubble'); if (t) t.remove(); }
 
         function setInputsEnabled(enabled) {
             const send = document.getElementById('chatSendBtn');
@@ -405,13 +420,9 @@
         }
 
         function playAudio(url) {
-            try {
-                const audio = new Audio(url);
-                audio.play().catch(() => { /* autoplay/playback blocked: text reply already shown */ });
-            } catch (e) { /* ignore: text reply already shown */ }
+            try { const a = new Audio(url); a.play().catch(() => {}); } catch (e) { /* text reply already shown */ }
         }
 
-        // === Render a /chat response ===
         function handleChatResponse(data, opts) {
             opts = opts || {};
             if (opts.showPatientText && data.patient_text) addChatMessage('patient', data.patient_text);
@@ -422,7 +433,7 @@
             setStatus(data.escalated ? 'You are being routed to a clinic.' : 'Describe your symptoms or concern');
         }
 
-        // === Run one turn: guards concurrency, shows processing, handles errors ===
+        // Run one turn: concurrency guard, processing indicator, error handling.
         async function runTurn(work, opts) {
             opts = opts || {};
             if (isProcessing) return;
@@ -456,7 +467,7 @@
         function sendChatMessage() {
             const input = document.getElementById('chatTextInput');
             const text = input.value.trim();
-            if (!text || isProcessing) return;   // ignore empty/whitespace-only input
+            if (!text || isProcessing) return;
             input.value = '';
             runTurn(() => chatPost({ message: text }), { patientText: text });
         }
@@ -481,7 +492,7 @@
         }
 
         function analyzeImage() {
-            if (!uploadedImage || isProcessing) return;   // nothing selected -> no-op
+            if (!uploadedImage || isProcessing) return;
             const file = uploadedImage;
             const imgSrc = document.getElementById('previewImg').src;
             const ext = fileExt(file, 'jpg');
@@ -544,23 +555,21 @@
 
         // === WIRE UP EVENTS ===
         window.addEventListener('DOMContentLoaded', () => {
-            // Auth gate: resume an existing session, otherwise go to the login page.
-            getIdToken().then(() => startConsultation()).catch(() => redirectToLogin());
-
-            const signOutBtn = document.getElementById('signOutBtn');
-            if (signOutBtn) signOutBtn.addEventListener('click', () => { signOut(); redirectToLogin(); });
+            requestLocation();
 
             const sendBtn = document.getElementById('chatSendBtn');
             const textIn = document.getElementById('chatTextInput');
-            sendBtn.addEventListener('click', sendChatMessage);
-            textIn.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+            if (sendBtn) sendBtn.addEventListener('click', sendChatMessage);
+            if (textIn) textIn.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
 
             const mic = document.getElementById('chatMicBtn');
-            mic.addEventListener('mousedown', startVoiceRecording);
-            mic.addEventListener('mouseup', stopVoiceRecording);
-            mic.addEventListener('mouseleave', () => { if (isRecording) stopVoiceRecording(); });
-            mic.addEventListener('touchstart', (e) => { e.preventDefault(); startVoiceRecording(); });
-            mic.addEventListener('touchend', (e) => { e.preventDefault(); stopVoiceRecording(); });
+            if (mic) {
+                mic.addEventListener('mousedown', startVoiceRecording);
+                mic.addEventListener('mouseup', stopVoiceRecording);
+                mic.addEventListener('mouseleave', () => { if (isRecording) stopVoiceRecording(); });
+                mic.addEventListener('touchstart', (e) => { e.preventDefault(); startVoiceRecording(); });
+                mic.addEventListener('touchend', (e) => { e.preventDefault(); stopVoiceRecording(); });
+            }
         });
     </script>
 </body>
