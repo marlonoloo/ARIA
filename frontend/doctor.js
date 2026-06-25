@@ -640,7 +640,16 @@ async function sendNotification(notificationId) {
         });
         if (!resp.ok) throw new Error(`API returned ${resp.status}`);
         const data = await resp.json();
-        btn.outerHTML = `<span class="text-sm font-medium text-green-700">✓ Sent to ${data.recipient}</span>`;
+        btn.outerHTML = `<span class="text-sm font-medium text-green-700">✓ Sent to ${data.recipient} — clearing from queue…</span>`;
+
+        // Auto-dismiss: the consultation is complete and the patient has been
+        // notified, so mark the briefing reviewed (removes it from the queue)
+        // and return to the worklist.
+        const sessionId = selectedPatient && selectedPatient.sessionId;
+        if (sessionId) {
+            await markReviewed(sessionId);
+            closeBriefingDetail();
+        }
     } catch (err) {
         console.error('Send error:', err);
         btn.textContent = 'Send failed — retry';
