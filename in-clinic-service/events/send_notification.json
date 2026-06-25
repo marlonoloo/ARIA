@@ -1,0 +1,5 @@
+{
+  "resource": "/notification/send",
+  "httpMethod": "POST",
+  "body": "{\"notification_id\": \"REPLACE-WITH-NOTIFICATION-ID-FROM-FINALIZE\"}"
+}

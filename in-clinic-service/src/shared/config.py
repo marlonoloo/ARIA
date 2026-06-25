@@ -74,5 +74,10 @@ class Config:
         # AWS_REGION is injected by the Lambda runtime.
         return _optional("AWS_REGION", "us-east-1")
 
+    @property
+    def ses_sender(self) -> str:
+        # Verified SES identity used as the "From" address for patient emails.
+        return _required("SES_SENDER")
+
 
 config = Config()

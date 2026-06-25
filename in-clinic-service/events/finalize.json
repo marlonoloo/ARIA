@@ -1,0 +1,5 @@
+{
+  "resource": "/consultation/finalize",
+  "httpMethod": "POST",
+  "body": "{\"briefing_id\": \"33333333-3333-3333-3333-333333333333\", \"clinician_decision\": \"accepted\", \"prescriptions\": [{\"drug_name\": \"Methyldopa\", \"dosage\": \"250mg\", \"frequency\": \"twice daily\", \"duration\": \"14 days\", \"instructions\": \"take with food\"}], \"follow_up\": {\"scheduled_date\": \"2026-07-01\", \"reason\": \"Blood pressure review\"}}"
+}

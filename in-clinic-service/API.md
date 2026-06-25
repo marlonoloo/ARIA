@@ -222,6 +222,74 @@ Any non-200 returns:
 | POST | `/briefing` | Generate the pre-exam clinical briefing |
 | POST | `/diagnosis` | Generate the diagnostic recommendation |
 | POST | `/briefing/reviewed` | Mark a briefing reviewed (removes it from the queue) |
+| POST | `/consultation/finalize` | Record decision + prescription + follow-up; draft patient summary (translated) |
+| POST | `/notification/send` | Doctor approves; email the summary to the patient (SES) |
+
+---
+
+## Endpoint 5 — Finalize consultation
+
+`POST /consultation/finalize`
+
+Records the clinician's decision on the AI recommendation, saves prescriptions
+and an optional follow-up, then composes + **translates** a patient summary and
+stores it as a **draft** (nothing is sent yet).
+
+**Request:**
+```json
+{
+  "briefing_id": "33333333-3333-3333-3333-333333333333",
+  "clinician_decision": "accepted | modified | rejected",
+  "clinician_modified_recommendation": "string (optional, for 'modified')",
+  "clinician_notes": "string (optional)",
+  "prescriptions": [
+    { "drug_name": "Methyldopa", "dosage": "250mg", "frequency": "twice daily",
+      "duration": "14 days", "instructions": "take with food" }
+  ],
+  "follow_up": { "scheduled_date": "2026-07-01", "reason": "BP review" },
+  "recipient_email": "optional override; defaults to patients.email"
+}
+```
+Only `briefing_id` and a valid `clinician_decision` are required; everything else
+is optional.
+
+**Response — HTTP 200:**
+```json
+{
+  "briefing_id": "...",
+  "decision": "accepted",
+  "prescriptions_saved": 1,
+  "follow_up_scheduled": true,
+  "notification_id": "uuid",
+  "recipient": "amara@example.com",
+  "language": "sw",
+  "summary_en": "Dear Amara, ...",
+  "summary_translated": "Mpendwa Amara, ...",
+  "note": "Draft only — call POST /notification/send to deliver after review."
+}
+```
+> UI: show `summary_translated` (and optionally `summary_en`) for the doctor to
+> review, with a "Send to patient" button that calls the next endpoint.
+
+---
+
+## Endpoint 6 — Send patient notification
+
+`POST /notification/send`
+
+Doctor approves the draft; sends the translated summary by email (SES) and marks
+it sent. Idempotent — calling twice won't re-send.
+
+**Request:**
+```json
+{ "notification_id": "uuid-from-finalize" }
+```
+
+**Response — HTTP 200:**
+```json
+{ "notification_id": "uuid", "sent": true, "recipient": "amara@example.com", "message_id": "ses-..." }
+```
+Returns `400` if the notification has no recipient email, `404` if not found.
 
 ---
 
