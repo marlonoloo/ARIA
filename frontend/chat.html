@@ -58,7 +58,7 @@
                 </div>
                 <span class="font-bold text-gray-900">Consultation</span>
             </div>
-            <div class="w-16"></div>
+            <button id="signOutBtn" class="text-sm font-medium text-gray-500 hover:text-gray-900">Sign out</button>
         </div>
     </header>
 
@@ -546,6 +546,9 @@
         window.addEventListener('DOMContentLoaded', () => {
             // Auth gate: resume an existing session, otherwise go to the login page.
             getIdToken().then(() => startConsultation()).catch(() => redirectToLogin());
+
+            const signOutBtn = document.getElementById('signOutBtn');
+            if (signOutBtn) signOutBtn.addEventListener('click', () => { signOut(); redirectToLogin(); });
 
             const sendBtn = document.getElementById('chatSendBtn');
             const textIn = document.getElementById('chatTextInput');

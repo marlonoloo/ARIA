@@ -37,6 +37,42 @@ function signIn(username, password) {
     });
 }
 
+// Register a new account. `attributes` is an optional map of Cognito user
+// attributes, e.g. { email: 'x@y.com', phone_number: '+254...', name: 'Amara' }.
+// Resolves with { userConfirmed, userSub, user }.
+function signUp(username, password, attributes) {
+    return new Promise((resolve, reject) => {
+        const attrList = Object.entries(attributes || {}).map(([Name, Value]) =>
+            new AmazonCognitoIdentity.CognitoUserAttribute({ Name: Name, Value: String(Value) }));
+        userPool.signUp(username, password, attrList, null, (err, result) => {
+            if (err) { reject(err); return; }
+            resolve({ userConfirmed: result.userConfirmed, userSub: result.userSub, user: result.user });
+        });
+    });
+}
+
+// Confirm a newly registered account with the emailed/texted verification code.
+function confirmSignUp(username, code) {
+    return new Promise((resolve, reject) => {
+        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: userPool });
+        user.confirmRegistration(code, true, (err, result) => {
+            if (err) { reject(err); return; }
+            resolve(result);
+        });
+    });
+}
+
+// Resend the confirmation code to a user who hasn't confirmed yet.
+function resendConfirmationCode(username) {
+    return new Promise((resolve, reject) => {
+        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: userPool });
+        user.resendConfirmationCode((err, result) => {
+            if (err) { reject(err); return; }
+            resolve(result);
+        });
+    });
+}
+
 // Resolve a valid ID token, refreshing silently if needed. Rejects when not signed in.
 function getIdToken() {
     return new Promise((resolve, reject) => {
