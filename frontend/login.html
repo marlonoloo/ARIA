@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA - Sign in</title>
+    <!-- Amazon Cognito Identity SDK (load BEFORE auth.js so its UMD bundle attaches the window global) -->
+    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { aria: { blue: '#2563EB', dark: '#1E40AF', light: '#EFF6FF' } } } }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4">
+
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div class="flex items-center gap-2 mb-1">
+            <div class="w-9 h-9 bg-aria-blue rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+            </div>
+            <h1 class="text-lg font-bold text-gray-900">Sign in to ARIA</h1>
+        </div>
+        <p class="text-sm text-gray-500 mb-5">Please sign in to start your consultation.</p>
+
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="loginEmail">Email or username</label>
+        <input type="text" id="loginEmail" autocomplete="username"
+               class="w-full mb-3 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+               placeholder="e.g. amara">
+
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password"
+               class="w-full mb-2 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+               placeholder="Your password">
+
+        <p id="loginError" class="hidden text-sm text-red-600 mb-2"></p>
+
+        <button id="loginBtn"
+                class="mt-2 w-full py-3 bg-aria-blue text-white rounded-xl text-sm font-semibold hover:bg-aria-dark active:scale-95 disabled:opacity-60">
+            Sign in
+        </button>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        // If a valid session already exists, skip straight to the consultation.
+        getIdToken().then(() => { window.location.href = 'chat.html'; }).catch(() => { /* show the form */ });
+
+        async function handleLoginSubmit() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('loginError');
+            const btn = document.getElementById('loginBtn');
+            errEl.classList.add('hidden');
+            if (!email || !password) {
+                errEl.textContent = 'Enter your email/username and password.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Signing in...';
+            try {
+                await signIn(email, password);
+                window.location.href = 'chat.html';
+            } catch (err) {
+                errEl.textContent = (err && err.message) ? err.message : 'Sign-in failed. Please try again.';
+                errEl.classList.remove('hidden');
+                btn.disabled = false; btn.textContent = 'Sign in';
+            }
+        }
+
+        document.getElementById('loginBtn').addEventListener('click', handleLoginSubmit);
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLoginSubmit(); });
+    </script>
+</body>
+</html>
