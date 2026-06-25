@@ -11,6 +11,8 @@
 
 // === API CONFIG ===
 const API_BASE = 'https://jhn2lkbr66.execute-api.us-east-1.amazonaws.com';
+// /briefing/reviewed lives on the consolidated aria-api gateway, not jhn2lkbr66.
+const REVIEW_API_BASE = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com';
 
 // Store all patients for filtering
 let allPatients = [];
@@ -192,9 +194,9 @@ function createBriefingCard(patient) {
             </div>
             ` : ''}
 
-            <!-- Recommended Actions -->
+            <!-- Suggested Preparation (pre-exam) -->
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Suggested Preparation <span class="normal-case text-gray-400">(before exam)</span></p>
                 ${actionsHTML}
             </div>
         </div>
@@ -286,9 +288,9 @@ function openBriefingDetail(patient) {
             </div>
             ` : ''}
 
-            <!-- Recommended Actions -->
+            <!-- Suggested Preparation (pre-exam) -->
             <div class="px-6 py-4 border-b border-gray-100">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggested Preparation <span class="normal-case text-gray-400">(before you examine)</span></p>
                 <div class="space-y-1">
                     ${actionsChecklist}
                 </div>
@@ -433,7 +435,7 @@ function renderDiagnosisResult(data) {
             </div>
 
             <div class="px-6 py-4 border-b border-gray-100">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Actions</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recommended Management <span class="normal-case text-gray-400">(based on your findings)</span></p>
                 <ol class="list-decimal list-inside space-y-1">
                     ${actionsHTML}
                 </ol>
@@ -476,7 +478,26 @@ function filterCards() {
     }
 }
 
-function markReviewed(sessionId) {
+async function markReviewed(sessionId) {
+    const patient = allPatients.find(p => p.sessionId === sessionId);
+    if (!patient) return;
+
+    // Persist the dismissal first, so the card stays gone after a refresh.
+    // (GET /patients only returns briefings where viewed_by_clinician = false.)
+    try {
+        const resp = await fetch(`${REVIEW_API_BASE}/briefing/reviewed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ briefing_id: patient.briefingId })
+        });
+        if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+    } catch (err) {
+        console.error('Failed to mark reviewed:', err);
+        alert('Could not dismiss this briefing — please try again.');
+        return; // leave the card in place on failure
+    }
+
+    // Success → remove the card from the UI.
     const cards = document.querySelectorAll('.briefing-card');
     cards.forEach(card => {
         if (card.querySelector(`button[onclick*="${sessionId}"]`)) {

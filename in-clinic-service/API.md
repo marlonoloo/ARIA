@@ -221,3 +221,31 @@ Any non-200 returns:
 | GET | `/patients` | Doctor's review queue (un-viewed briefings, urgent first) |
 | POST | `/briefing` | Generate the pre-exam clinical briefing |
 | POST | `/diagnosis` | Generate the diagnostic recommendation |
+| POST | `/briefing/reviewed` | Mark a briefing reviewed (removes it from the queue) |
+
+---
+
+## Endpoint 4 — Mark briefing reviewed
+
+`POST /briefing/reviewed`
+
+Marks a briefing as reviewed by the clinician, which removes it from the
+`GET /patients` queue (that queue only shows un-viewed briefings). This is what
+the dashboard's "Dismiss" button should call so the card stays gone after a
+refresh.
+
+**Request:**
+```json
+{ "briefing_id": "33333333-3333-3333-3333-333333333333" }
+```
+Optional: include `"clinician_id": "<uuid>"` to record who reviewed it.
+
+**Response — HTTP 200:**
+```json
+{ "briefing_id": "33333333-3333-3333-3333-333333333333", "reviewed": true }
+```
+Returns `404` if the `briefing_id` doesn't exist, `400` if it's missing.
+
+> UI note: call this from `markReviewed()` **before** removing the card, so the
+> dismissal persists. On success, drop the card; on failure, leave it and show
+> an error.
