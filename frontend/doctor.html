@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>ARIA - Doctor Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -58,51 +59,57 @@
     <main class="max-w-6xl mx-auto px-4 py-6">
 
         <!-- Stats Bar -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
-            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
-                <p class="text-2xl font-bold text-aria-emergency" id="criticalCount">-</p>
-                <p class="text-xs text-gray-500">Critical</p>
+        <!-- QUEUE VIEW (main list) -->
+        <div id="queueView">
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                    <p class="text-2xl font-bold text-red-600" id="criticalCount">-</p>
+                    <p class="text-xs text-gray-500">Critical</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                    <p class="text-2xl font-bold text-amber-500" id="pendingCount">-</p>
+                    <p class="text-xs text-gray-500">Pending Review</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                    <p class="text-2xl font-bold text-blue-600" id="totalCount">-</p>
+                    <p class="text-xs text-gray-500">Total Today</p>
+                </div>
             </div>
-            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
-                <p class="text-2xl font-bold text-amber-500" id="pendingCount">-</p>
-                <p class="text-xs text-gray-500">Pending Review</p>
+
+            <!-- Filter -->
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-gray-900">Incoming Patients</h2>
+                <select id="filterSeverity" onchange="filterCards()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Severity</option>
+                    <option value="critical">Critical</option>
+                    <option value="severe">Severe</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="mild">Mild</option>
+                </select>
             </div>
-            <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
-                <p class="text-2xl font-bold text-aria-primary" id="totalCount">-</p>
-                <p class="text-xs text-gray-500">Total Today</p>
+
+            <!-- Briefing Cards -->
+            <div id="briefingsContainer" class="space-y-4">
+                <!-- Loading state -->
+                <div id="loadingState" class="text-center py-12">
+                    <div class="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-500 text-sm">Loading patient briefings...</p>
+                </div>
+            </div>
+
+            <!-- Empty state -->
+            <div id="emptyState" class="text-center py-12 hidden">
+                <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <p class="text-gray-500">No pending briefings. All patients reviewed.</p>
             </div>
         </div>
 
-        <!-- Filter -->
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-aria-dark">Incoming Patients</h2>
-            <select id="filterSeverity" onchange="filterCards()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-aria-primary">
-                <option value="all">All Severity</option>
-                <option value="critical">Critical</option>
-                <option value="severe">Severe</option>
-                <option value="moderate">Moderate</option>
-                <option value="mild">Mild</option>
-            </select>
-        </div>
-
-        <!-- Briefing Cards -->
-        <div id="briefingsContainer" class="space-y-4">
-            <!-- Loading state -->
-            <div id="loadingState" class="text-center py-12">
-                <div class="w-12 h-12 border-4 border-gray-200 border-t-aria-primary rounded-full animate-spin mx-auto mb-4"></div>
-                <p class="text-gray-500 text-sm">Loading patient briefings...</p>
-            </div>
-        </div>
-
-        <!-- Empty state -->
-        <div id="emptyState" class="text-center py-12 hidden">
-            <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
-            <p class="text-gray-500">No pending briefings. All patients reviewed.</p>
-        </div>
+        <!-- BRIEFING DETAIL VIEW (hidden, shown when a patient card is clicked) -->
+        <div id="briefingDetail" class="hidden"></div>
 
     </main>
 
