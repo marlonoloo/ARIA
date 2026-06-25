@@ -11,6 +11,8 @@
 
 // === API CONFIG ===
 const API_BASE = 'https://jhn2lkbr66.execute-api.us-east-1.amazonaws.com';
+// /briefing/reviewed lives on the consolidated aria-api gateway, not jhn2lkbr66.
+const REVIEW_API_BASE = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com';
 
 // Store all patients for filtering
 let allPatients = [];
@@ -483,7 +485,7 @@ async function markReviewed(sessionId) {
     // Persist the dismissal first, so the card stays gone after a refresh.
     // (GET /patients only returns briefings where viewed_by_clinician = false.)
     try {
-        const resp = await fetch(`${API_BASE}/briefing/reviewed`, {
+        const resp = await fetch(`${REVIEW_API_BASE}/briefing/reviewed`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ briefing_id: patient.briefingId })
