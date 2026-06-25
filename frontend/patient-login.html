@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>ARIA - Patient Sign In</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        aria: {
+                            blue: '#2563EB',
+                            dark: '#1E40AF',
+                            light: '#EFF6FF',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-white min-h-screen flex items-center justify-center px-4">
+
+    <div class="w-full max-w-sm">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-aria-blue rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span class="text-3xl">🏥</span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">ARIA</h1>
+            <p class="text-sm text-gray-500 mt-1">Sign in to start your consultation</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Welcome back</h2>
+            <p class="text-sm text-gray-500 mb-6">Sign in to continue</p>
+
+            <!-- Error message -->
+            <div id="errorMsg" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p class="text-sm text-red-700" id="errorText"></p>
+            </div>
+
+            <form onsubmit="handlePatientLogin(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="username" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="Enter your username">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="password" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="Enter your password">
+                    </div>
+                </div>
+
+                <button type="submit" id="loginBtn"
+                        class="w-full mt-6 py-3 bg-aria-blue text-white rounded-xl text-sm font-semibold hover:bg-aria-dark active:scale-[0.98] transition-transform">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <button onclick="showSignUp()" class="text-sm text-aria-blue hover:underline">
+                    New patient? Create an account
+                </button>
+            </div>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div id="signUpForm" class="hidden bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Create account</h2>
+            <p class="text-sm text-gray-500 mb-6">Register to use ARIA consultations</p>
+
+            <div id="signUpErrorMsg" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p class="text-sm text-red-700" id="signUpErrorText"></p>
+            </div>
+
+            <form onsubmit="handlePatientSignUp(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label for="signUpName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                        <input type="text" id="signUpName" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="Amara Wanjiku">
+                    </div>
+                    <div>
+                        <label for="signUpUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="signUpUsername" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="Choose a username">
+                    </div>
+                    <div>
+                        <label for="signUpEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="signUpEmail" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label for="signUpPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="signUpPassword" required minlength="8"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                               placeholder="Min 8 characters">
+                    </div>
+                </div>
+
+                <button type="submit" id="signUpBtn"
+                        class="w-full mt-6 py-3 bg-aria-blue text-white rounded-xl text-sm font-semibold hover:bg-aria-dark active:scale-[0.98] transition-transform">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <button onclick="showLogin()" class="text-sm text-aria-blue hover:underline">
+                    Already have an account? Sign in
+                </button>
+            </div>
+        </div>
+
+        <!-- Confirmation Form -->
+        <div id="confirmForm" class="hidden bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Verify your email</h2>
+            <p class="text-sm text-gray-500 mb-6">Check your email for the verification code.</p>
+
+            <form onsubmit="handlePatientConfirm(event)">
+                <div>
+                    <label for="confirmCode" class="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
+                    <input type="text" id="confirmCode" required
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-center tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
+                           placeholder="123456">
+                </div>
+
+                <button type="submit"
+                        class="w-full mt-6 py-3 bg-aria-blue text-white rounded-xl text-sm font-semibold hover:bg-aria-dark active:scale-[0.98] transition-transform">
+                    Verify & Sign In
+                </button>
+            </form>
+        </div>
+
+        <!-- Links -->
+        <div class="text-center mt-6 space-y-2">
+            <a href="emergency.html" class="block text-sm text-red-600 font-medium hover:underline">
+                Having an emergency? Get help without signing in
+            </a>
+            <a href="index.html" class="block text-sm text-gray-400 hover:underline">
+                Back to home
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // === COGNITO CONFIG ===
+        const COGNITO_REGION = 'us-east-1';
+        const COGNITO_CLIENT_ID = '2naufa434t15vjrrl7aru34fqr';
+        const COGNITO_ENDPOINT = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com`;
+
+        let pendingUsername = '';
+
+        // === SIGN IN ===
+        async function handlePatientLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+
+            hideError('errorMsg');
+            btn.textContent = 'Signing in...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(COGNITO_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-amz-json-1.1',
+                        'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth'
+                    },
+                    body: JSON.stringify({
+                        AuthFlow: 'USER_PASSWORD_AUTH',
+                        ClientId: COGNITO_CLIENT_ID,
+                        AuthParameters: {
+                            USERNAME: username,
+                            PASSWORD: password
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.AuthenticationResult) {
+                    // Store tokens
+                    sessionStorage.setItem('aria_id_token', data.AuthenticationResult.IdToken);
+                    sessionStorage.setItem('aria_access_token', data.AuthenticationResult.AccessToken);
+                    sessionStorage.setItem('aria_patient_username', username);
+
+                    // Redirect to non-emergency chat
+                    window.location.href = 'chat.html';
+                } else if (data.__type && data.__type.includes('NotAuthorizedException')) {
+                    showError('errorMsg', 'errorText', 'Incorrect username or password.');
+                } else if (data.__type && data.__type.includes('UserNotConfirmedException')) {
+                    pendingUsername = username;
+                    showConfirm();
+                } else {
+                    showError('errorMsg', 'errorText', data.message || 'Login failed.');
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                showError('errorMsg', 'errorText', 'Connection error. Please try again.');
+            }
+
+            btn.textContent = 'Sign In';
+            btn.disabled = false;
+        }
+
+        // === SIGN UP ===
+        async function handlePatientSignUp(event) {
+            event.preventDefault();
+            const name = document.getElementById('signUpName').value.trim();
+            const username = document.getElementById('signUpUsername').value.trim();
+            const email = document.getElementById('signUpEmail').value.trim();
+            const password = document.getElementById('signUpPassword').value;
+            const btn = document.getElementById('signUpBtn');
+
+            hideError('signUpErrorMsg');
+            btn.textContent = 'Creating account...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(COGNITO_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-amz-json-1.1',
+                        'X-Amz-Target': 'AWSCognitoIdentityProviderService.SignUp'
+                    },
+                    body: JSON.stringify({
+                        ClientId: COGNITO_CLIENT_ID,
+                        Username: username,
+                        Password: password,
+                        UserAttributes: [
+                            { Name: 'email', Value: email },
+                            { Name: 'name', Value: name }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.UserSub) {
+                    pendingUsername = username;
+                    showConfirm();
+                } else if (data.__type && data.__type.includes('UsernameExistsException')) {
+                    showError('signUpErrorMsg', 'signUpErrorText', 'Username already taken.');
+                } else {
+                    showError('signUpErrorMsg', 'signUpErrorText', data.message || 'Sign up failed.');
+                }
+            } catch (err) {
+                showError('signUpErrorMsg', 'signUpErrorText', 'Connection error.');
+            }
+
+            btn.textContent = 'Create Account';
+            btn.disabled = false;
+        }
+
+        // === CONFIRM ===
+        async function handlePatientConfirm(event) {
+            event.preventDefault();
+            const code = document.getElementById('confirmCode').value.trim();
+
+            try {
+                const response = await fetch(COGNITO_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-amz-json-1.1',
+                        'X-Amz-Target': 'AWSCognitoIdentityProviderService.ConfirmSignUp'
+                    },
+                    body: JSON.stringify({
+                        ClientId: COGNITO_CLIENT_ID,
+                        Username: pendingUsername,
+                        ConfirmationCode: code
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.__type) {
+                    alert('Verified! You can now sign in.');
+                    showLogin();
+                    document.getElementById('username').value = pendingUsername;
+                } else {
+                    alert(data.message || 'Invalid code.');
+                }
+            } catch (err) {
+                alert('Connection error.');
+            }
+        }
+
+        // === UI HELPERS ===
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signUpForm').classList.add('hidden');
+            document.getElementById('confirmForm').classList.add('hidden');
+        }
+        function showSignUp() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signUpForm').classList.remove('hidden');
+            document.getElementById('confirmForm').classList.add('hidden');
+        }
+        function showConfirm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signUpForm').classList.add('hidden');
+            document.getElementById('confirmForm').classList.remove('hidden');
+        }
+        function showError(containerId, textId, msg) {
+            document.getElementById(containerId).classList.remove('hidden');
+            document.getElementById(textId).textContent = msg;
+        }
+        function hideError(containerId) {
+            document.getElementById(containerId).classList.add('hidden');
+        }
+
+        // If already logged in, skip to chat
+        if (sessionStorage.getItem('aria_id_token')) {
+            window.location.href = 'chat.html';
+        }
+    </script>
+</body>
+</html>

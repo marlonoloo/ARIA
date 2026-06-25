@@ -37,6 +37,13 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
 
+    <!-- Auth check — redirect to patient login if not signed in -->
+    <script>
+        if (!sessionStorage.getItem('aria_id_token')) {
+            window.location.href = 'patient-login.html';
+        }
+    </script>
+
     <!-- Header -->
     <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -54,7 +61,9 @@
                 </div>
                 <span class="font-bold text-gray-900">Consultation</span>
             </div>
-            <div class="w-16"></div>
+            <button onclick="patientLogout()" class="text-sm text-gray-500 hover:text-red-600 font-medium">
+                Sign Out
+            </button>
         </div>
     </header>
 
@@ -210,6 +219,17 @@
     </main>
 
     <script>
+        // === PATIENT AUTH ===
+        function patientLogout() {
+            sessionStorage.removeItem('aria_id_token');
+            sessionStorage.removeItem('aria_access_token');
+            sessionStorage.removeItem('aria_patient_username');
+            window.location.href = 'patient-login.html';
+        }
+
+        // Get patient username for personalization
+        const patientUsername = sessionStorage.getItem('aria_patient_username') || 'there';
+
         // === MODE SELECTION ===
         let currentMode = null;
 
@@ -224,11 +244,11 @@
             // Update welcome message based on mode
             const welcomeMsg = document.getElementById('welcomeMessage');
             if (mode === 'voice') {
-                welcomeMsg.textContent = "I'm listening. Hold the mic button and tell me what's wrong.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! I'm listening. Hold the mic button and tell me what's wrong.`;
             } else if (mode === 'text') {
-                welcomeMsg.textContent = "Hello! Type your symptoms or describe what's bothering you.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! Type your symptoms or describe what's bothering you.`;
             } else if (mode === 'image') {
-                welcomeMsg.textContent = "Upload a photo of the affected area. I'll analyze it and ask follow-up questions.";
+                welcomeMsg.textContent = `Hello ${patientUsername}! Upload a photo of the affected area. I'll analyze it and ask follow-up questions.`;
             }
         }
 
