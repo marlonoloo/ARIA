@@ -120,10 +120,30 @@ def test_send_happy_path():
     body = json.loads(resp["body"])
     assert resp["statusCode"] == 200
     assert body["message_id"] == "ses-msg-123"
-    # Sends the translated text, not the English original.
+    # Sends the stored translated text + on-file recipient when no overrides.
     send.assert_called_once()
+    assert send.call_args[0][0] == "amara@example.com"
     assert send.call_args[0][2] == "habari"
     mark.assert_called_once()
+
+
+def test_send_uses_overrides():
+    notif = {"notification_id": "n-1", "content_text": "hi", "translated_text": "habari",
+             "recipient": None, "sent": False}
+    with mock.patch.object(send_notification, "_load_notification", return_value=notif), \
+         mock.patch.object(send_notification.notifications, "send_email",
+                           return_value="ses-msg-9") as send, \
+         mock.patch.object(send_notification, "_mark_sent") as mark:
+        resp = send_notification.handler(
+            _event({"notification_id": "n-1", "recipient": "doc@clinic.org",
+                    "content": "edited message"}),
+            None,
+        )
+    assert resp["statusCode"] == 200
+    # Override recipient + edited content are what get sent and persisted.
+    assert send.call_args[0][0] == "doc@clinic.org"
+    assert send.call_args[0][2] == "edited message"
+    mark.assert_called_once_with("n-1", "doc@clinic.org", "edited message")
 
 
 def test_send_idempotent_when_already_sent():

@@ -282,8 +282,15 @@ it sent. Idempotent — calling twice won't re-send.
 
 **Request:**
 ```json
-{ "notification_id": "uuid-from-finalize" }
+{
+  "notification_id": "uuid-from-finalize",
+  "recipient": "optional — override/supply the recipient email",
+  "content": "optional — doctor-edited message text to send instead of the draft"
+}
 ```
+Only `notification_id` is required. If `recipient`/`content` are provided (e.g. the
+doctor edited the message or supplied an email during review), they are sent and
+persisted on the notification.
 
 **Response — HTTP 200:**
 ```json
