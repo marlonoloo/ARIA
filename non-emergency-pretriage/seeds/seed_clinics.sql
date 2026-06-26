@@ -11,7 +11,7 @@
 INSERT INTO clinics
     (clinic_id, clinic_name, location, latitude, longitude, is_active, services_available)
 VALUES
-    ('a1000000-0000-0000-0000-000000000001', 'Mothobi Westlands Clinic',  'Westlands, Nairobi', -1.2649, 36.8025, true, ARRAY['general','pediatrics']),
+    ('a1000000-0000-0000-0000-000000000001', 'Mothobi Westlands Clinic',  'Westlands, Nairobi', -1.2649, 36.8025, true, ARRAY['general','pediatrics','maternity']),
     ('a1000000-0000-0000-0000-000000000002', 'Mothobi Mombasa Clinic',    'Mombasa',            -4.0435, 39.6682, true, ARRAY['general','maternity','burns']),
     ('a1000000-0000-0000-0000-000000000003', 'Mothobi Kisumu Clinic',     'Kisumu',             -0.0917, 34.7680, true, ARRAY['general','maternity']),
     ('a1000000-0000-0000-0000-000000000004', 'Mothobi Nakuru Clinic',     'Nakuru',             -0.3031, 36.0800, true, ARRAY['general','pediatrics','burns']),

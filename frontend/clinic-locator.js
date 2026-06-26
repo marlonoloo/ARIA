@@ -18,15 +18,21 @@
 
 const NEAREST_CLINIC_URL = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com/nearest-clinic';
 
+// Cache the last known coordinates so a follow-up lookup (e.g. once the
+// condition/service is known) doesn't re-prompt the patient for location.
+let _lastCoords = null;
+
 // Resolve the browser's current coordinates as { lat, lng }.
-function getBrowserLocation(timeoutMs = 8000) {
+// Reuses cached coordinates unless useCache=false.
+function getBrowserLocation(timeoutMs = 8000, useCache = true) {
+    if (useCache && _lastCoords) return Promise.resolve(_lastCoords);
     return new Promise((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject(new Error('Geolocation is not supported on this device.'));
             return;
         }
         navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            (pos) => { _lastCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude }; resolve(_lastCoords); },
             (err) => reject(err),
             { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 }
         );
@@ -49,6 +55,10 @@ async function getNearestClinic(lat, lng, service) {
 }
 
 // Convenience: capture location, then find the nearest clinic. Returns clinic or null.
+// Pass a service (e.g. 'maternity', 'burns', 'pediatrics') to route to the nearest
+// clinic that offers it; the backend falls back to the nearest of any service if
+// none match. Coordinates are cached, so calling again with a service after an
+// initial serviceless lookup won't re-prompt for location.
 async function findNearestClinic(service) {
     const { lat, lng } = await getBrowserLocation();
     return getNearestClinic(lat, lng, service);
