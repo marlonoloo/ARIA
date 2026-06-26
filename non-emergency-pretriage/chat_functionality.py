@@ -350,16 +350,21 @@ def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, b
 
     english, src_lang = "", "sw"
     if message:
-        # Let Amazon Translate auto-detect the source language so the reply mirrors
-        # what the patient actually wrote. We do NOT gate on Comprehend confidence
-        # or the stored profile (short phrases were misclassified as English and
-        # skipped translation). Default to Swahili if detection is unavailable.
+        # Auto-detect the source language via Translate, but bias toward the
+        # languages we actually serve. Short Swahili phrases are sometimes
+        # misdetected (e.g. as Estonian), so anything outside the expected set is
+        # treated as Swahili (our default) and re-translated from Swahili.
+        expected_langs = {"en", "sw", "fr", "ar", "pt", "zu"}
         try:
             english, src_lang = to_english(message, source_lang=None)
         except Exception:
             english, src_lang = message, "sw"
-        if not src_lang:
+        if src_lang not in expected_langs:
             src_lang = "sw"
+            try:
+                english, _ = to_english(message, source_lang="sw")
+            except Exception:
+                english = message
 
     if not session_id:
         session_id = execute(
