@@ -348,13 +348,18 @@ def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, b
     if audio_key and not message:
         message, _ = transcribe_s3(bucket, audio_key)
 
-    english, src_lang = "", patient_lang
+    english, src_lang = "", "sw"
     if message:
-        src_lang, _, _ = detect_language(message, patient_lang)
+        # Let Amazon Translate auto-detect the source language so the reply mirrors
+        # what the patient actually wrote. We do NOT gate on Comprehend confidence
+        # or the stored profile (short phrases were misclassified as English and
+        # skipped translation). Default to Swahili if detection is unavailable.
         try:
-            english, src_lang = to_english(message, source_lang=src_lang)
-        except Exception:
             english, src_lang = to_english(message, source_lang=None)
+        except Exception:
+            english, src_lang = message, "sw"
+        if not src_lang:
+            src_lang = "sw"
 
     if not session_id:
         session_id = execute(
