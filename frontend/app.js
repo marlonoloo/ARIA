@@ -218,7 +218,8 @@ const POLLY_VOICES = {
     'en': { voiceId: 'Joanna', engine: 'neural' },
     'fr': { voiceId: 'Lea', engine: 'neural' },
     'ar': { voiceId: 'Zeina', engine: 'standard' },
-    'default': { voiceId: 'Joanna', engine: 'neural' }
+    'es': { voiceId: 'Mia', engine: 'neural' },
+    'default': { voiceId: 'Mia', engine: 'neural' }
 };
 
 async function speakResponse(text, languageCode) {
