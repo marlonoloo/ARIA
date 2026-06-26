@@ -122,7 +122,7 @@
 
         <!-- Chat Interface (hidden initially, shown after mode selection) -->
         <div id="chatInterface" class="flex-1 flex flex-col hidden">
-            
+
             <!-- Status -->
             <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-center">
                 <p class="text-sm text-aria-blue font-medium" id="chatStatus">Describe your symptoms or concern</p>
@@ -130,7 +130,6 @@
 
             <!-- Messages -->
             <div id="chatMessages" class="flex-1 space-y-3 overflow-y-auto mb-4 min-h-[250px]">
-                <!-- ARIA welcome message -->
                 <div class="flex justify-start message-enter">
                     <div class="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] shadow-sm">
                         <p class="text-xs font-medium text-aria-blue mb-1">ARIA</p>
@@ -141,7 +140,7 @@
 
             <!-- Input Area -->
             <div id="inputArea" class="space-y-3 pb-4">
-                
+
                 <!-- Voice input -->
                 <div id="voiceInput" class="flex flex-col items-center gap-2 hidden">
                     <button class="mic-btn w-20 h-20 rounded-full bg-aria-blue flex items-center justify-center shadow-lg hover:bg-aria-dark active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-200"
@@ -156,7 +155,7 @@
 
                 <!-- Text input -->
                 <div id="textInput" class="flex gap-2 hidden">
-                    <input type="text" 
+                    <input type="text"
                            id="chatTextInput"
                            class="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-aria-blue focus:border-transparent"
                            placeholder="Type your symptoms..."
@@ -179,7 +178,6 @@
                         </div>
                         <input type="file" id="imageFile" accept="image/*" capture="environment" class="hidden" onchange="handleImageUpload(event)">
                     </label>
-                    <!-- Image preview -->
                     <div id="imagePreview" class="hidden mt-4">
                         <div class="relative inline-block">
                             <img id="previewImg" class="rounded-xl max-h-48 border border-gray-200" alt="Uploaded image">
@@ -219,6 +217,11 @@
     </main>
 
     <script>
+        // ============================================================
+        // ARIA Consultation — live backend integration
+        // Auth shell (sessionStorage aria_id_token) comes from patient-login.html.
+        // ============================================================
+
         // === PATIENT AUTH ===
         function patientLogout() {
             sessionStorage.removeItem('aria_id_token');
@@ -227,21 +230,63 @@
             window.location.href = 'patient-login.html';
         }
 
-        // Get patient username for personalization
         const patientUsername = sessionStorage.getItem('aria_patient_username') || 'there';
 
-        // === MODE SELECTION ===
-        let currentMode = null;
+        // === BACKEND CONFIG ===
+        const API_BASE = 'https://ju4c4od7u1.execute-api.us-east-1.amazonaws.com';
 
+        // === STATE ===
+        let currentMode = null;
+        let sessionId = null;        // single conversation shared across all input modes
+        let patientCoords = null;    // { lat, lng } once geolocation succeeds, else null
+        let isProcessing = false;    // guards against concurrent turns
+        let uploadedImage = null;
+
+        // === AUTH + API HELPERS ===
+        function getIdToken() { return sessionStorage.getItem('aria_id_token'); }
+
+        async function authedPost(path, body) {
+            const token = getIdToken();
+            if (!token) { patientLogout(); throw new Error('not-signed-in'); }
+            const res = await fetch(API_BASE + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(body),
+            });
+            if (res.status === 401) { patientLogout(); throw new Error('not-signed-in'); }
+            if (!res.ok) throw new Error('Sorry, that request failed (' + res.status + '). Please try again.');
+            return res.json();
+        }
+
+        // Merge session + location into a /chat call and capture a new session_id.
+        async function chatPost(extra) {
+            const body = Object.assign({}, extra);
+            if (sessionId) body.session_id = sessionId;
+            if (patientCoords) { body.lat = patientCoords.lat; body.lng = patientCoords.lng; }
+            const data = await authedPost('/chat', body);
+            if (data && data.session_id && !sessionId) sessionId = data.session_id;
+            return data;
+        }
+
+        // === GEOLOCATION (for nearest-clinic routing) ===
+        function requestLocation() {
+            if (!('geolocation' in navigator)) { patientCoords = null; return; }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                    patientCoords = (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : null;
+                },
+                () => { patientCoords = null; }
+            );
+        }
+
+        // === MODE SELECTION ===
         function selectMode(mode) {
             currentMode = mode;
             document.getElementById('modeSelection').classList.add('hidden');
             document.getElementById('chatInterface').classList.remove('hidden');
-
-            // Show the right input
             switchInput(mode);
 
-            // Update welcome message based on mode
             const welcomeMsg = document.getElementById('welcomeMessage');
             if (mode === 'voice') {
                 welcomeMsg.textContent = `Hello ${patientUsername}! I'm listening. Hold the mic button and tell me what's wrong.`;
@@ -274,13 +319,163 @@
             }
         }
 
-        // === IMAGE HANDLING ===
-        let uploadedImage = null;
+        // === UI RENDERING (DOM-built; text set via textContent to avoid injection) ===
+        function messagesEl() { return document.getElementById('chatMessages'); }
+        function scrollMessages() { const m = messagesEl(); m.scrollTop = m.scrollHeight; }
+        function setStatus(text) { document.getElementById('chatStatus').textContent = text; }
 
+        function addChatMessage(sender, text) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex message-enter ' + (sender === 'patient' ? 'justify-end' : 'justify-start');
+            const bubble = document.createElement('div');
+            if (sender === 'patient') {
+                bubble.className = 'bg-aria-blue text-white rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]';
+                const p = document.createElement('p'); p.className = 'text-sm'; p.textContent = text;
+                bubble.appendChild(p);
+            } else {
+                bubble.className = 'bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] shadow-sm';
+                const label = document.createElement('p'); label.className = 'text-xs font-medium text-aria-blue mb-1'; label.textContent = 'ARIA';
+                const p = document.createElement('p'); p.className = 'text-sm text-gray-900'; p.textContent = text;
+                bubble.appendChild(label); bubble.appendChild(p);
+            }
+            wrap.appendChild(bubble);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+
+        function addImageMessage(src) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex justify-end message-enter';
+            const bubble = document.createElement('div');
+            bubble.className = 'bg-aria-blue rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]';
+            const img = document.createElement('img');
+            img.src = src; img.className = 'rounded-lg max-h-32 mb-2'; img.alt = 'Patient upload';
+            const p = document.createElement('p'); p.className = 'text-sm text-white'; p.textContent = 'Image shared for analysis';
+            bubble.appendChild(img); bubble.appendChild(p);
+            wrap.appendChild(bubble);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+
+        function showEscalationNotice() {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex justify-center message-enter';
+            const box = document.createElement('div');
+            box.className = 'bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 max-w-[90%] text-center';
+            const t = document.createElement('p'); t.className = 'text-sm font-semibold'; t.textContent = 'You are being routed to in-person care.';
+            box.appendChild(t);
+            wrap.appendChild(box);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+
+        function showClinicCard(clinic) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex justify-center message-enter';
+            const box = document.createElement('div');
+            box.className = 'bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 max-w-[90%] w-full';
+            const name = document.createElement('p'); name.className = 'text-sm font-semibold text-aria-dark'; name.textContent = clinic.name || 'Recommended clinic';
+            box.appendChild(name);
+            if (clinic.location) { const loc = document.createElement('p'); loc.className = 'text-sm text-gray-700'; loc.textContent = clinic.location; box.appendChild(loc); }
+            if (clinic.distance_km != null) { const d = document.createElement('p'); d.className = 'text-xs text-gray-500 mt-1'; d.textContent = 'About ' + clinic.distance_km + ' km away'; box.appendChild(d); }
+            wrap.appendChild(box);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+
+        function showChatError(message) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex justify-center message-enter';
+            const box = document.createElement('div');
+            box.className = 'bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2 max-w-[90%] text-center';
+            const p = document.createElement('p'); p.className = 'text-sm'; p.textContent = message;
+            box.appendChild(p);
+            wrap.appendChild(box);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+
+        function showTyping() {
+            if (document.getElementById('typingBubble')) return;
+            const wrap = document.createElement('div');
+            wrap.id = 'typingBubble';
+            wrap.className = 'flex justify-start message-enter';
+            const bubble = document.createElement('div');
+            bubble.className = 'bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm';
+            const p = document.createElement('p'); p.className = 'text-sm text-gray-400'; p.textContent = 'ARIA is typing…';
+            bubble.appendChild(p);
+            wrap.appendChild(bubble);
+            messagesEl().appendChild(wrap);
+            scrollMessages();
+        }
+        function removeTyping() { const t = document.getElementById('typingBubble'); if (t) t.remove(); }
+
+        function setInputsEnabled(enabled) {
+            const send = document.getElementById('chatSendBtn');
+            const txt = document.getElementById('chatTextInput');
+            const mic = document.getElementById('chatMicBtn');
+            if (send) send.disabled = !enabled;
+            if (txt) txt.disabled = !enabled;
+            if (mic) mic.disabled = !enabled;
+        }
+
+        function playAudio(url) {
+            try { const a = new Audio(url); a.play().catch(() => {}); } catch (e) { /* text reply already shown */ }
+        }
+
+        function handleChatResponse(data, opts) {
+            opts = opts || {};
+            if (opts.showPatientText && data.patient_text) addChatMessage('patient', data.patient_text);
+            if (data.reply) addChatMessage('aria', data.reply);
+            if (data.escalated) showEscalationNotice();
+            if (data.clinic) showClinicCard(data.clinic);
+            if (data.audio_url) playAudio(data.audio_url);
+            setStatus(data.escalated ? 'You are being routed to a clinic.' : 'Describe your symptoms or concern');
+        }
+
+        // Run one turn: concurrency guard, processing indicator, error handling.
+        async function runTurn(work, opts) {
+            opts = opts || {};
+            if (isProcessing) return;
+            isProcessing = true;
+            setInputsEnabled(false);
+            if (opts.patientText) addChatMessage('patient', opts.patientText);
+            if (opts.patientImage) addImageMessage(opts.patientImage);
+            showTyping();
+            try {
+                const data = await work();
+                removeTyping();
+                handleChatResponse(data, opts);
+            } catch (err) {
+                removeTyping();
+                if (!err || err.message !== 'not-signed-in') {
+                    showChatError((err && err.message) ? err.message : 'Something went wrong. Please try again.');
+                }
+            } finally {
+                setInputsEnabled(true);
+                isProcessing = false;
+            }
+        }
+
+        function fileExt(file, fallback) {
+            if (file && file.name && file.name.indexOf('.') !== -1) return file.name.split('.').pop().toLowerCase();
+            if (file && file.type && file.type.indexOf('/') !== -1) return file.type.split('/')[1].toLowerCase();
+            return fallback;
+        }
+
+        // === TEXT CHAT ===
+        function sendChatMessage() {
+            const input = document.getElementById('chatTextInput');
+            const text = input.value.trim();
+            if (!text || isProcessing) return;
+            input.value = '';
+            runTurn(() => chatPost({ message: text }), { patientText: text });
+        }
+
+        // === IMAGE HANDLING ===
         function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             uploadedImage = file;
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -297,120 +492,85 @@
         }
 
         function analyzeImage() {
-            if (!uploadedImage) return;
-
-            // Add image message to chat
-            const messagesDiv = document.getElementById('chatMessages');
+            if (!uploadedImage || isProcessing) return;
+            const file = uploadedImage;
             const imgSrc = document.getElementById('previewImg').src;
-
-            messagesDiv.innerHTML += `
-                <div class="flex justify-end message-enter">
-                    <div class="bg-aria-blue rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
-                        <img src="${imgSrc}" class="rounded-lg max-h-32 mb-2" alt="Patient upload">
-                        <p class="text-sm text-white">Image uploaded for analysis</p>
-                    </div>
-                </div>
-            `;
-
-            // Simulate ARIA response (replace with actual Rekognition API call)
-            setTimeout(() => {
-                messagesDiv.innerHTML += `
-                    <div class="flex justify-start message-enter">
-                        <div class="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] shadow-sm">
-                            <p class="text-xs font-medium text-aria-blue mb-1">ARIA</p>
-                            <p class="text-sm text-gray-900">I've received your image. Let me analyze it. Can you tell me — how long have you had this condition, and does it cause pain?</p>
-                        </div>
-                    </div>
-                `;
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-                // Switch to text input for follow-up
-                switchInput('text');
-                document.getElementById('chatStatus').textContent = 'Answer follow-up questions to help ARIA assess your condition';
-            }, 1500);
-
+            const ext = fileExt(file, 'jpg');
             clearImage();
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            runTurn(async () => {
+                const up = await authedPost('/upload-url', { type: 'image', ext: ext });
+                const put = await fetch(up.upload_url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                    body: file,
+                });
+                if (!put.ok) throw new Error('Image upload failed (' + put.status + '). Please try again.');
+                return chatPost({ image_key: up.key });
+            }, { patientImage: imgSrc });
         }
 
-        // === TEXT CHAT ===
-        const chatTextInput = document.getElementById('chatTextInput');
-        const chatSendBtn = document.getElementById('chatSendBtn');
-
-        chatSendBtn?.addEventListener('click', sendChatMessage);
-        chatTextInput?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendChatMessage();
-        });
-
-        function sendChatMessage() {
-            const text = chatTextInput.value.trim();
-            if (!text) return;
-
-            chatTextInput.value = '';
-            addChatMessage('patient', text);
-
-            // TODO: Connect to actual backend (Faith's Lex bot or Bedrock endpoint)
-            // For now, simulate a response
-            setTimeout(() => {
-                addChatMessage('aria', "Thank you for sharing that. Based on what you've described, I'd recommend visiting Mothobi Central Clinic for a proper examination. Would you like me to help you find the nearest clinic?");
-            }, 1000);
-        }
-
-        function addChatMessage(sender, text) {
-            const messagesDiv = document.getElementById('chatMessages');
-
-            if (sender === 'patient') {
-                messagesDiv.innerHTML += `
-                    <div class="flex justify-end message-enter">
-                        <div class="bg-aria-blue text-white rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
-                            <p class="text-sm">${text}</p>
-                        </div>
-                    </div>
-                `;
-            } else {
-                messagesDiv.innerHTML += `
-                    <div class="flex justify-start message-enter">
-                        <div class="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] shadow-sm">
-                            <p class="text-xs font-medium text-aria-blue mb-1">ARIA</p>
-                            <p class="text-sm text-gray-900">${text}</p>
-                        </div>
-                    </div>
-                `;
-            }
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        // === VOICE (placeholder — connect to actual backend) ===
-        const chatMicBtn = document.getElementById('chatMicBtn');
+        // === VOICE ===
+        let mediaRecorder = null;
+        let audioChunks = [];
         let isRecording = false;
 
-        chatMicBtn?.addEventListener('mousedown', () => {
-            isRecording = true;
-            chatMicBtn.classList.add('recording');
-            document.getElementById('chatStatus').textContent = 'Listening...';
-        });
+        async function startVoiceRecording() {
+            if (isRecording || isProcessing) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = [];
+                mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
+                mediaRecorder.start();
+                isRecording = true;
+                document.getElementById('chatMicBtn').classList.add('recording');
+                setStatus('Listening...');
+            } catch (err) {
+                setStatus('Describe your symptoms or concern');
+                showChatError('Microphone access is required to use voice. Please allow it and try again.');
+            }
+        }
 
-        chatMicBtn?.addEventListener('mouseup', () => {
-            if (!isRecording) return;
+        function stopVoiceRecording() {
+            if (!isRecording || !mediaRecorder) return;
             isRecording = false;
-            chatMicBtn.classList.remove('recording');
-            document.getElementById('chatStatus').textContent = 'Processing...';
+            document.getElementById('chatMicBtn').classList.remove('recording');
+            setStatus('Processing...');
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                try { mediaRecorder.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+                runTurn(async () => {
+                    const up = await authedPost('/upload-url', { type: 'audio', ext: 'webm' });
+                    const put = await fetch(up.upload_url, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'audio/webm' },
+                        body: blob,
+                    });
+                    if (!put.ok) throw new Error('Audio upload failed (' + put.status + '). Please try again.');
+                    return chatPost({ audio_key: up.key, speak: true });
+                }, { showPatientText: true });
+            };
+            mediaRecorder.stop();
+        }
 
-            // TODO: Connect to actual Transcribe + backend
-            // Simulate for now
-            setTimeout(() => {
-                addChatMessage('patient', 'I have a rash on my arm that has been spreading for two days');
-                document.getElementById('chatStatus').textContent = 'Describe your symptoms or concern';
+        // === WIRE UP EVENTS ===
+        window.addEventListener('DOMContentLoaded', () => {
+            requestLocation();
 
-                setTimeout(() => {
-                    addChatMessage('aria', "I understand you have a spreading rash. Can you describe the color and texture? Is it raised, flat, itchy, or painful? This will help me assess whether you need immediate care.");
-                }, 800);
-            }, 1500);
+            const sendBtn = document.getElementById('chatSendBtn');
+            const textIn = document.getElementById('chatTextInput');
+            if (sendBtn) sendBtn.addEventListener('click', sendChatMessage);
+            if (textIn) textIn.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+            const mic = document.getElementById('chatMicBtn');
+            if (mic) {
+                mic.addEventListener('mousedown', startVoiceRecording);
+                mic.addEventListener('mouseup', stopVoiceRecording);
+                mic.addEventListener('mouseleave', () => { if (isRecording) stopVoiceRecording(); });
+                mic.addEventListener('touchstart', (e) => { e.preventDefault(); startVoiceRecording(); });
+                mic.addEventListener('touchend', (e) => { e.preventDefault(); stopVoiceRecording(); });
+            }
         });
-
-        // Touch support
-        chatMicBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); chatMicBtn.dispatchEvent(new Event('mousedown')); });
-        chatMicBtn?.addEventListener('touchend', (e) => { e.preventDefault(); chatMicBtn.dispatchEvent(new Event('mouseup')); });
     </script>
 </body>
 </html>
