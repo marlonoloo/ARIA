@@ -341,20 +341,30 @@ def nearest_clinic(lat, lng, service=None):
 
 def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, bucket=None, speak=None, lat=None, lng=None):
     patient_id, clinic_id, patient_lang, prefers_voice = get_patient(phone)
-    patient_lang = patient_lang or "en"
+    patient_lang = patient_lang or "sw"
     bucket = bucket or MEDIA_BUCKET
     if speak is None:
         speak = prefers_voice
     if audio_key and not message:
         message, _ = transcribe_s3(bucket, audio_key)
 
-    english, src_lang = "", patient_lang
+    english, src_lang = "", "sw"
     if message:
-        src_lang, _, _ = detect_language(message, patient_lang)
+        # Auto-detect the source language via Translate, but bias toward the
+        # languages we actually serve. Short Swahili phrases are sometimes
+        # misdetected (e.g. as Estonian), so anything outside the expected set is
+        # treated as Swahili (our default) and re-translated from Swahili.
+        expected_langs = {"en", "sw", "fr", "ar", "pt", "zu"}
         try:
-            english, src_lang = to_english(message, source_lang=src_lang)
-        except Exception:
             english, src_lang = to_english(message, source_lang=None)
+        except Exception:
+            english, src_lang = message, "sw"
+        if src_lang not in expected_langs:
+            src_lang = "sw"
+            try:
+                english, _ = to_english(message, source_lang="sw")
+            except Exception:
+                english = message
 
     if not session_id:
         session_id = execute(
@@ -417,13 +427,20 @@ def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, b
     save_message(session_id, "patient", message or "[photo shared]",
                  stored_text or "[photo shared]", src_lang, seq)
 
-    reply_patient = from_english(reply_en, patient_lang)
-    save_message(session_id, "aria", reply_patient, reply_en, patient_lang, seq + 1)
+    # Reply (and speak) in the language the patient actually used this turn —
+    # src_lang is the source language Translate detected from their message —
+    # defaulting to Swahili. This keeps ARIA's reply in the patient's language
+    # regardless of their stored profile, and picks the matching Polly voice
+    # (Swahili has no Polly voice, so synthesize_to_s3 falls back to the phonetic
+    # Spanish voice).
+    reply_lang = src_lang or "sw"
+    reply_patient = from_english(reply_en, reply_lang)
+    save_message(session_id, "aria", reply_patient, reply_en, reply_lang, seq + 1)
 
     audio_url = None
     if speak:
         try:
-            audio_url, _ = synthesize_to_s3(reply_patient, patient_lang, bucket, session_id)
+            audio_url, _ = synthesize_to_s3(reply_patient, reply_lang, bucket, session_id)
         except Exception as ex:
             print(f"[warn] polly skipped: {ex}")
 
@@ -472,12 +489,12 @@ def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, b
             "action": action, "escalated": escalated,
             "image_analyzed": bool(image_key), "image_findings": img_findings,
             "audio_url": audio_url, "patient_text": message,
-            "clinic": nearest, "language": patient_lang}
+            "clinic": nearest, "language": reply_lang}
 
 # ---------------- One-shot triage ----------------
 def run_triage(message, phone, emergency=False, input_type="text", audio_s3_uri=None):
     patient_id, clinic_id, patient_lang, _ = get_patient(phone)
-    patient_lang = patient_lang or "en"
+    patient_lang = patient_lang or "sw"
 
     src_lang, detected, score = detect_language(message, patient_lang)
     try:
@@ -566,7 +583,7 @@ def run_triage(message, phone, emergency=False, input_type="text", audio_s3_uri=
     if not is_emergency:
         result["briefing"] = briefing
         result["patient_guidance"] = from_english(briefing.get("first_aid_given", ""),
-                                                  patient_lang)
+                                                  src_lang or "sw")
     return result
 
 
