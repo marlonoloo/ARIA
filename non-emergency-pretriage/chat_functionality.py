@@ -453,9 +453,10 @@ def chat_turn(phone, message, session_id=None, image_key=None, audio_key=None, b
                  "sid": session_id})
         execute("""INSERT INTO clinical_briefings (session_id, patient_id,
                        processing_status, chief_complaint, ai_assessment, severity,
-                       recommended_actions, first_aid_given, needs_in_person)
+                       recommended_actions, first_aid_given, needs_in_person,
+                       viewed_by_clinician)
                    VALUES (CAST(:sid AS uuid), CAST(:pid AS uuid), 'complete', :cc,
-                           :assess, :sev, :ra, :aid, true)
+                           :assess, :sev, :ra, :aid, true, false)
                    ON CONFLICT (session_id) DO NOTHING""",
                 {"sid": session_id, "pid": patient_id,
                  "cc": decision.get("chief_complaint", english or "Photo-based concern"),
@@ -529,8 +530,8 @@ def run_triage(message, phone, emergency=False, input_type="text", audio_s3_uri=
             execute(
                 """INSERT INTO clinical_briefings (session_id, patient_id,
                        processing_status, chief_complaint, patient_context,
-                       needs_in_person, flagged_for_review)
-                   VALUES (CAST(:sid AS uuid), CAST(:pid AS uuid), 'raw', :cc, :ctx, true, true)""",
+                       needs_in_person, flagged_for_review, viewed_by_clinician)
+                   VALUES (CAST(:sid AS uuid), CAST(:pid AS uuid), 'raw', :cc, :ctx, true, true, false)""",
                 {"sid": sid, "pid": patient_id, "cc": english, "ctx": english}, tx)
             execute("UPDATE sessions SET briefing_generated=true "
                     "WHERE session_id=CAST(:sid AS uuid)", {"sid": sid}, tx)
@@ -539,9 +540,10 @@ def run_triage(message, phone, emergency=False, input_type="text", audio_s3_uri=
             execute(
                 """INSERT INTO clinical_briefings (session_id, patient_id,
                        processing_status, chief_complaint, ai_assessment, severity,
-                       recommended_actions, first_aid_given, needs_in_person)
+                       recommended_actions, first_aid_given, needs_in_person,
+                       viewed_by_clinician)
                    VALUES (CAST(:sid AS uuid), CAST(:pid AS uuid), 'complete', :cc,
-                           :assess, :sev, :actions, :aid, :inperson)""",
+                           :assess, :sev, :actions, :aid, :inperson, false)""",
                 {"sid": sid, "pid": patient_id, "cc": b["chief_complaint"],
                  "assess": b["ai_assessment"], "sev": b["severity"],
                  "actions": b["recommended_actions"], "aid": b.get("first_aid_given"),
